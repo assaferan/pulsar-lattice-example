@@ -4,3 +4,5 @@ __pycache__/
 figures/
 # Synthetic data written by the generators (regenerable; produced on the fly in tests).
 data/data_generated_*.npy
+# Local copy of the paper's LaTeX source (not redistributed; see docs/METHOD.md).
+arXiv-2402.07228v2/
