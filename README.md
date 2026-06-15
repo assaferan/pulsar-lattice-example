@@ -28,7 +28,8 @@ and `g6k` into a self-contained virtualenv. First install the build
 dependencies:
 ```
 sudo apt-get install -y build-essential libgmp-dev libmpfr-dev \
-    libtool-bin libqd-dev autoconf automake pkg-config
+    libtool-bin libqd-dev autoconf automake pkg-config \
+    python3-pip python3-virtualenv
 ```
 Then build (this also creates the `g6k-env` virtualenv):
 ```

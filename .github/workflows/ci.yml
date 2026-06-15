@@ -5,6 +5,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  # Pinned so the cache is reproducible; bump to rebuild against a newer g6k.
+  G6K_COMMIT: c71e084
+  # Portable CPU baseline instead of -march=native, so cached binaries run on
+  # any GitHub runner regardless of which one built them. x86-64-v2 (SSE4.2 etc.)
+  # is supported by all current GitHub-hosted Ubuntu runners.
+  G6K_MARCH: x86-64-v2
+
 jobs:
   fold:
     runs-on: ubuntu-latest
@@ -18,12 +26,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libgmp-dev libmpfr-dev \
-            libtool-bin libqd-dev autoconf automake pkg-config
+            libtool-bin libqd-dev autoconf automake pkg-config \
+            python3-pip python3-virtualenv
+
+      - name: Cache g6k build
+        id: cache-g6k
+        uses: actions/cache@v4
+        with:
+          path: ~/g6k
+          key: g6k-${{ runner.os }}-${{ env.G6K_COMMIT }}-${{ env.G6K_MARCH }}
 
       - name: Build g6k (fplll, fpylll, g6k)
+        if: steps.cache-g6k.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 https://github.com/fplll/g6k.git "$HOME/g6k"
+          git clone https://github.com/fplll/g6k.git "$HOME/g6k"
           cd "$HOME/g6k"
+          git checkout "$G6K_COMMIT"
+          # bootstrap.sh bakes -march=native into the env it exports, which all
+          # of fplll/fpylll/g6k inherit. Swap it for a portable baseline so the
+          # cached artifacts are safe to reuse on any runner.
+          sed -i "s/-march=native/-march=${G6K_MARCH}/g" bootstrap.sh
           PYTHON=python3 ./bootstrap.sh -j "$(nproc)"
 
       - name: Run folding pipeline test
