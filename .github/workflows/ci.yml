@@ -59,3 +59,59 @@ jobs:
           # Runs the whole suite: test_fermi_fold.py (shipped data) and
           # test_data_generation.py (synthetic Model A / Model B round-trips).
           python3 -m pytest -v
+
+  # macOS build. g6k's bootstrap.sh targets Debian/Ubuntu, so on macOS we get
+  # fpylll prebuilt from conda-forge and build g6k against it. g6k commit c71e084
+  # predates modern clang, so three small source patches are needed. The fixes
+  # rely on x86 AVX2 intrinsics, so this must run on an Intel runner (macos-13);
+  # Apple-Silicon runners take a different SIMD path with separate clang issues.
+  fold-macos:
+    runs-on: macos-13
+    timeout-minutes: 60
+    defaults:
+      run:
+        # login shell so `conda activate` works and the env stays active.
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up miniforge (conda)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: g6k
+          python-version: "3.11"
+
+      - name: Install fpylll + build deps (conda-forge)
+        run: |
+          conda install -y -c conda-forge \
+            fpylll numpy scipy cython numba pytest compilers pkg-config
+
+      - name: Build g6k (patched for clang)
+        run: |
+          git clone https://github.com/fplll/g6k.git "$HOME/g6k"
+          cd "$HOME/g6k"
+          git checkout "$G6K_COMMIT"
+          # This commit's C++ targets gcc; clang needs three fixes:
+          #  1. simd.inl: _mm_srli_si128 needs a constant arg and is a byte
+          #     shift; use the per-64-bit-lane variable shift (matches the
+          #     generic branch) instead.
+          perl -pi -e 's/\Qreturn _mm_srli_si128(a, pos);\E/return _mm_srl_epi64(a, _mm_cvtsi32_si128(pos));/' kernel/simd.inl
+          #  2. bdgl_sieve.cpp: std::min over mixed unsigned widths -> pin size_t.
+          perl -pi -e 's/\Qstd::min(S-1, insert_after\E/std::min<size_t>(S-1, insert_after/' kernel/bdgl_sieve.cpp
+          #  3. fht_lsh.cpp: clang rejects initialising a variable-length array.
+          perl -pi -e 's/\Qfloat c[multi_hash] = {0};\E/float c[multi_hash];\n    std::fill(c, c + multi_hash, 0.0f);/' kernel/fht_lsh.cpp
+          # Build against the conda env's fplll headers/libs.
+          export CPATH="$CONDA_PREFIX/include:$CPATH"
+          export LIBRARY_PATH="$CONDA_PREFIX/lib:$LIBRARY_PATH"
+          export LDFLAGS="-L$CONDA_PREFIX/lib $LDFLAGS"
+          ./configure --enable-native=yes
+          python setup.py build_ext --inplace -j3
+
+      - name: Run folding pipeline test
+        run: |
+          # g6k is built in-place; put it (and this repo) on the path.
+          export PYTHONPATH="$HOME/g6k:$GITHUB_WORKSPACE:$PYTHONPATH"
+          python -m pytest -v
