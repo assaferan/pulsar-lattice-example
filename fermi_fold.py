@@ -5,12 +5,21 @@ importable function.  Given the data dictionary shipped in ``data/data.npy``
 it reduces and sieves the timing lattice, folds the verification TOAs and
 computes the Q statistic used to identify true pulsar solutions.
 
+Two search strategies are available:
+
+* the default **full sieve** (one BKZ reduction followed by a deep G6K pump);
+* a **fast sieve** (``fast=True``): LLL plus a much shallower pump.  The solution
+  vector is found at a modest sieving dimension, so the shallow pump recovers it
+  reliably about two orders of magnitude faster than the full pump (~0.2 s vs
+  ~20 s), at a still-decisive Q statistic.
+
 Example
 -------
 >>> from fermi_fold import load_data, fold
 >>> data = load_data("data/data.npy")
->>> result = fold(data)
+>>> result = fold(data)                 # full sieve
 >>> result["Q_stat"].max()
+>>> fast = fold(data, fast=True)        # shallow sieve, same detection, faster
 """
 
 import numpy as np
@@ -35,7 +44,55 @@ def load_data(path="data/data.npy"):
     return np.load(path, allow_pickle=True).tolist()
 
 
-def fold(data_needed, block_size=30, delta=0.95, reasonable_k_std=1e5):
+def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz):
+    """Reduce and sieve the lattice; return (db_raw, db_transformation, db_vectors).
+
+    With ``do_bkz`` the basis is reduced with BKZ (the full strategy); otherwise
+    only LLL is used (the fast strategy).  ``pump_stop`` is the left bound the
+    G6K pump descends to: smaller means a deeper, more expensive sieve.
+    """
+    n = integer_lattice.shape[0]
+    integer_matrix = fpylll.IntegerMatrix.from_iterable(
+        n, n, list(map(int, list(integer_lattice.flatten()))),
+    )
+    gso = fpylll.GSO.Mat(
+        integer_matrix,
+        flags=fpylll.GSO.INT_GRAM,
+        U=fpylll.IntegerMatrix.identity(n),
+        UinvT=fpylll.IntegerMatrix.identity(n),
+    )
+
+    if do_bkz:
+        fpylll.BKZ.Reduction(
+            gso,
+            fpylll.LLL.Reduction(gso, delta=delta),
+            fpylll.BKZ.Param(
+                block_size=block_size,
+                strategies=fpylll.BKZ.DEFAULT_STRATEGY,
+                delta=delta,
+            ),
+        )()
+    else:
+        fpylll.LLL.Reduction(gso, delta=delta)()
+
+    # Sieve on successively larger sublattices (G6K "pump").
+    g6k = Siever(gso)
+    g6k.initialize_local(0, n // 2, n)
+    with g6k.temp_params(otf_lift=False):
+        while g6k.l > pump_stop:
+            g6k.extend_left(1)
+            g6k(alg="hk3")
+        g6k.extend_left(g6k.l)
+
+    # Read the sieve results in the various formats.
+    db_raw = np.array(list(g6k.itervalues()))
+    db_transformation = db_raw @ np.array(list(g6k.M.U))
+    db_vectors = db_raw @ np.array(list(g6k.M.B))
+    return db_raw, db_transformation, db_vectors
+
+
+def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
+         reasonable_k_std=1e5):
     """Run the lattice folding pipeline on the given data.
 
     Parameters
@@ -44,8 +101,14 @@ def fold(data_needed, block_size=30, delta=0.95, reasonable_k_std=1e5):
         The data dictionary, as returned by :func:`load_data`.  Must contain
         the keys ``integer_lattice``, ``coeff_std``, ``toas_met_lattice``,
         ``transformation_matrix``, ``mul_factor`` and ``probs_verify``.
+    fast : bool, optional
+        If ``True`` use the fast strategy (LLL + shallow pump) instead of the
+        full sieve (BKZ + deep pump). Default ``False``.
+    pump_stop : int, optional
+        Fast mode only: left bound the shallow pump descends to (larger ==
+        cheaper/weaker; default 27, i.e. a sieving dimension of ``n - 27``).
     block_size : int, optional
-        Block size for the BKZ lattice reduction (default 30).
+        Block size for the BKZ lattice reduction in the full sieve (default 30).
     delta : float, optional
         LLL/BKZ ``delta`` reduction parameter (default 0.95).
     reasonable_k_std : float, optional
@@ -77,48 +140,19 @@ def fold(data_needed, block_size=30, delta=0.95, reasonable_k_std=1e5):
     transformation_matrix = data_needed["transformation_matrix"]
     mul_factor = data_needed["mul_factor"]
     probs_verify = data_needed["probs_verify"]
+    n_periodic = len(toas_met_lattice)
 
-    # 1. Set up the lattice in fpylll's format.
-    integer_matrix = fpylll.IntegerMatrix.from_iterable(
-        *integer_lattice.shape,
-        list(map(int, list(integer_lattice.flatten()))),
-    )
-    gso = fpylll.GSO.Mat(
-        integer_matrix,
-        flags=fpylll.GSO.INT_GRAM,
-        U=fpylll.IntegerMatrix.identity(integer_matrix.nrows),
-        UinvT=fpylll.IntegerMatrix.identity(integer_matrix.nrows),
-    )
+    if fast:
+        db_raw, db_transformation, db_vectors = _sieve(
+            integer_lattice, pump_stop, block_size, delta, do_bkz=False)
+    else:
+        db_raw, db_transformation, db_vectors = _sieve(
+            integer_lattice, len(coeff_std), block_size, delta, do_bkz=True)
 
-    # 2. Reduce the lattice with BKZ for a more balanced basis.
-    bkz = fpylll.BKZ.Reduction(
-        gso,
-        fpylll.LLL.Reduction(gso, delta=delta),
-        fpylll.BKZ.Param(
-            block_size=block_size,
-            strategies=fpylll.BKZ.DEFAULT_STRATEGY,
-            delta=delta,
-        ),
-    )
-    bkz()
+    db_transformation_k = db_transformation[:, :n_periodic]
+    db_transformation_p = db_transformation[:, n_periodic:]
 
-    # 3. Sieve on successively larger sublattices (G6K "pump").
-    g6k = Siever(gso)
-    g6k.initialize_local(0, integer_lattice.shape[0] // 2, integer_lattice.shape[0])
-    with g6k.temp_params(otf_lift=False):
-        while g6k.l > len(coeff_std):
-            g6k.extend_left(1)
-            g6k(alg="hk3")
-        g6k.extend_left(len(coeff_std))
-
-    # Read the sieve results in the various formats.
-    db_raw = np.array(list(g6k.itervalues()))
-    db_transformation = db_raw @ np.array(list(g6k.M.U))
-    db_transformation_k = db_transformation[:, : len(toas_met_lattice)]
-    db_transformation_p = db_transformation[:, len(toas_met_lattice):]
-    db_vectors = db_raw @ np.array(list(g6k.M.B))
-
-    # 4. Fold the verification TOAs and compute the Q statistic.
+    # Fold the verification TOAs and compute the Q statistic.
     verify_fold = (
         np.mod(db_transformation_p @ transformation_matrix / mul_factor + 0.5, 1) - 0.5
     )
@@ -143,11 +177,14 @@ def fold(data_needed, block_size=30, delta=0.95, reasonable_k_std=1e5):
 
 
 if __name__ == "__main__":
+    import sys
+    fast = "--fast" in sys.argv[1:]
     data = load_data()
-    result = fold(data)
+    result = fold(data, fast=fast)
     mask = result["reasonable_solutions_mask"]
     Q_stat = result["Q_stat"][mask]
-    print(f"Sieved {len(result['Q_stat'])} vectors, "
+    label = "fast" if fast else "full"
+    print(f"[{label}] Sieved {len(result['Q_stat'])} vectors, "
           f"{mask.sum()} physically reasonable.")
     if Q_stat.size:
         print(f"Max Q statistic: {Q_stat.max():.2f}")

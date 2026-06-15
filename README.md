@@ -48,18 +48,25 @@ source /path/to/g6k/activate
 [`fermi_fold.py`](fermi_fold.py) packages the notebook into an importable
 `fold()` function. With the g6k environment active:
 ```
-python3 fermi_fold.py            # folds data/data.npy and prints the max Q statistic
+python3 fermi_fold.py            # full sieve: folds data/data.npy, prints max Q
+python3 fermi_fold.py --fast     # fast sieve: same detection, ~100x faster sieving
 ```
 or from your own code:
 ```python
 from fermi_fold import load_data, fold
 
 data = load_data("data/data.npy")
-result = fold(data)
+result = fold(data)              # or fold(data, fast=True)
 best = result["verify_fold"][result["reasonable_solutions_mask"]][
     result["Q_stat"][result["reasonable_solutions_mask"]].argmax()
 ]
 ```
+
+`fold(data, fast=True)` replaces the BKZ + deep pump with LLL + a shallow pump.
+The solution vector is found at a modest sieving dimension, so the shallow pump
+recovers it reliably (Q ~= 400, well above the detection threshold) in a
+fraction of a second instead of ~20 s. Tune the depth with `pump_stop` (larger
+is cheaper/weaker).
 
 [`run.sh`](run.sh) is a convenience wrapper that activates the g6k environment
 and runs the pipeline, so you don't have to `source` it manually:

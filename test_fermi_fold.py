@@ -7,15 +7,14 @@ threshold is set well below that to tolerate the randomness in sieving while
 still requiring a clear detection.
 """
 
+import pytest
+
 from fermi_fold import load_data, fold
 
 Q_DETECTION_THRESHOLD = 50.0
 
 
-def test_fold_detects_pulsar():
-    data = load_data("data/data.npy")
-    result = fold(data)
-
+def _assert_detection(result):
     mask = result["reasonable_solutions_mask"]
     assert mask.any(), "no physically reasonable solutions were found"
 
@@ -24,3 +23,10 @@ def test_fold_detects_pulsar():
         f"max Q statistic {max_q:.1f} is below the detection threshold "
         f"{Q_DETECTION_THRESHOLD}; the pulsar was not recovered"
     )
+
+
+@pytest.mark.parametrize("fast", [False, True], ids=["full", "fast"])
+def test_fold_detects_pulsar(fast):
+    data = load_data("data/data.npy")
+    result = fold(data, fast=fast)
+    _assert_detection(result)
