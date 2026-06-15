@@ -77,3 +77,13 @@ algorithm: O(1) bootstrap solve + O(N) cheap phase-connections = `poly(N)`
 `progressive_solver.py`. This leverage test measures forward connection *from the
 true solution*; it says nothing about whether a short-baseline bootstrap can
 *acquire* the true solution in the first place. It cannot.
+
+## `l1_search.py` — would an L1 objective acquire the pulsar? (NEGATIVE)
+
+Tests whether minimising the L1 (rather than L2) phase residual helps acquisition.
+**It does not.** On the bootstrap the true `b*` is the *worst* of 200 candidates
+under both L1 and L2 (overfit solutions reach ~0 residual), so no norm-min search
+emits it; globally `b*` is rank 1 under both norms, so selection is fine. The
+bottleneck is **generation from a short baseline**, which is norm-independent.
+(The no-signal solution has zero residual under any norm, so residual-min never
+prefers a pulsar — detection needs the coherence/physical criterion.)
