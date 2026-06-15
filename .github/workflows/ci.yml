@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  fold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libgmp-dev libmpfr-dev \
+            libtool-bin libqd-dev autoconf automake pkg-config
+
+      - name: Build g6k (fplll, fpylll, g6k)
+        run: |
+          git clone --depth 1 https://github.com/fplll/g6k.git "$HOME/g6k"
+          cd "$HOME/g6k"
+          PYTHON=python3 ./bootstrap.sh -j "$(nproc)"
+
+      - name: Run folding pipeline test
+        run: |
+          # g6k's activate script is not safe under 'set -e' (it runs
+          # 'unalias python'), so suppress errexit while sourcing it.
+          source "$HOME/g6k/activate" || true
+          # g6k is built in-place in its checkout; put it on the path so it
+          # is importable, along with this repo for fermi_fold.
+          export PYTHONPATH="$HOME/g6k:$GITHUB_WORKSPACE:$PYTHONPATH"
+          python3 -m pytest -v test_fermi_fold.py
