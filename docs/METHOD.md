@@ -123,7 +123,49 @@ $$ Q = \frac{\big|\sum_m w_m\, e^{\,2\pi i \varphi_m}\big|^2}{\tfrac12\sum_m w_m
 
 Coherent (folded) phases give large $Q$; uniform phases give $Q \sim \mathcal{O}(1)$.
 
-## 5. Where this lives in the code
+## 5. How hard is it? (complexity)
+
+Under the null hypothesis (random TOAs), the **Gaussian heuristic** gives the
+per-coordinate length of the shortest non-trivial vector of an $n$-dimensional
+lattice,
+
+$$ \sigma_{\rm exp} = \frac{\mathrm{vol}(\mathcal L)^{1/n}}{\sqrt{2\pi e}} = \frac{\Lambda^{-1/n}}{\sqrt{2\pi e}}, \qquad \Lambda \equiv \frac{1}{\mathrm{vol}(\mathcal L)}, $$
+
+where $\Lambda$ (the inverse covolume) measures the number of "independent
+options" in the search. The true solution has per-coordinate length $\sigma$ (the
+pulse width), and the number of spurious vectors shorter than it is
+$(\sigma/\sigma_{\rm exp})^n$ — so it is recovered once the sieve has generated
+that many candidates. Modelling the sieve (Ducas et al. 2021, $n\sim100$) as
+producing $N_{\rm cand}\approx 2^{0.2n}$ candidates at time cost
+$C\approx 2^{0.36n}$, the solution is found when
+
+$$ \left(\frac{\sigma}{\sigma_{\rm exp}}\right)^{n} \le N_{\rm cand} = 2^{0.2n}. $$
+
+At the threshold (the minimum data dimension $n$) the $n$-th root removes $n$,
+yielding a closed form for the dimension and a **$\Lambda$-independent** cost
+exponent:
+
+$$ n = \frac{\ln\Lambda}{\ln\!\big(2^{0.2}/(\sigma\sqrt{2\pi e})\big)}, \qquad C = 2^{0.36\,n} = \Lambda^{a}, \qquad a = \frac{0.36\ln 2}{\ln\!\big(2^{0.2}/(\sigma\sqrt{2\pi e})\big)}. $$
+
+The pulse width is set by the photon association probability $p$ (via
+$\sigma^2 = p\,\sigma_{\rm int}^2 + (1-p)/12$; for an infinitely narrow intrinsic
+pulse $p = 1 - 12\sigma^2$), so narrower/cleaner pulses (small $\sigma$, high $p$)
+mean a smaller exponent $a$ and a tractable search. This is the content of Table 1
+of the paper: $\sigma \lesssim 0.11$ is cheap ($a \lesssim 0.27$), while $p=0.5$
+is infeasible ($a\approx0.81$, $C\approx10^{22.5}$ at $\Lambda=10^{28}$).
+
+[`complexity_table.py`](../complexity_table.py) reproduces that table from these
+formulas (the cost exponent $a$ matches to ~0.01; the dimension $n$ to within a
+few). Its `diagnostics()` traces the small $n$ residual to the **empirical sieve
+constants** ($0.2,\,0.36$, calibrated for $n\sim100$), *not* to the analytic
+corrections: the $\sqrt{1+\Sigma^2}$ and $n-m$ terms are absorbed into $\Lambda$
+and are numerically $\approx 1$ here (the search ranges $\sigma_i$ dwarf
+$\sigma_{\rm exp}$), so the exact $\sigma_{\rm exp}=\Lambda^{-1/n}/\sqrt{2\pi e}$
+is what we already used. The paper's own columns are mutually consistent only to
+~1% ($n=207$ implies $a=0.801$ vs. the listed $0.81$), the same level as the
+reproduction.
+
+## 6. Where this lives in the code
 
 | Concept | Code |
 |---|---|
@@ -141,7 +183,7 @@ Synthetic end-to-end examples with known ground truth:
 - [`model_b_full_timing.py`](../model_b_full_timing.py) — §2 + §3 spin-down and position
   ($\phi, f, \dot f, \Delta\alpha, \Delta\delta, \dot\alpha, \dot\delta$).
 
-## 6. The demo target
+## 7. The demo target
 
 The shipped `data/data.npy` is **PSR J0318+0253** (4FGL J0318.2+0254), an isolated
 millisecond $\gamma$-ray pulsar. Fermi-LAT photons (2008–2023) within $3^\circ$ of
