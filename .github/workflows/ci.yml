@@ -56,4 +56,6 @@ jobs:
           # g6k is built in-place in its checkout; put it on the path so it
           # is importable, along with this repo for fermi_fold.
           export PYTHONPATH="$HOME/g6k:$GITHUB_WORKSPACE:$PYTHONPATH"
-          python3 -m pytest -v test_fermi_fold.py
+          # Runs the whole suite: test_fermi_fold.py (shipped data) and
+          # test_data_generation.py (synthetic Model A / Model B round-trips).
+          python3 -m pytest -v
