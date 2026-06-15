@@ -12,6 +12,19 @@ PYTHONPATH=. python3 experiments/lever1.py
 Both reconstruct lattices from `span_vecs`/`coeff_std` (the constructor is not in
 the repo; it was reverse-engineered — see `density_sweep.build_il`).
 
+## `modq_reduction.py` — does exploiting Z^n (reducing mod the integer lattice) help?
+
+The lattice contains `q·Z^N` (q = `mul_factor`), so any vector can be shortened
+by reducing its first N coordinates mod q and stays in the lattice. Two checks:
+post-processing the full sieve database, and a modq-vs-raw reinsertion control.
+
+**Finding:** it does **not** help. Reducing the final database mod q shortens
+~10% of vectors but reveals no new detection (the sieve already returns the
+solution in reduced form), and reinserting *reduced* vs *raw* short vectors
+behaves identically — because the LLL size reduction already performs the mod-q
+reduction. So "reduce mod Z^n" is redundant with LLL. (Note: uses exact integer
+arithmetic — `q ≈ 1e16` exceeds float64's exact range.)
+
 ## `density_sweep.py` — how does the required sieving dimension scale with N?
 
 Subsamples the 70 lattice TOAs, rebuilds the lattice, and finds the minimum
