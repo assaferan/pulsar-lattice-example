@@ -144,7 +144,9 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
     sat_ratio     : stop when collisions exceed sat_ratio*target (saturation).
     topk          : how many shortest db vectors the triple search scans.
     sampler_coeff : range of random basis-combination coeffs for new samples.
-    move_hook     : optional callback move_hook(pv, pc, p2, db) after each insert.
+    move_hook     : optional callback move_hook(pv, pc, p2, db, samples) after each
+                    insert; return False to stop the sieve early (e.g. on first
+                    detection, to measure work-to-detection).
     seed_coef     : (n x n) matrix; row i = coordinates of ``basis[i]`` in the
                     basis you want ``coeffs`` reported in (default identity ->
                     coeffs in ``basis`` itself). Pass the LLL transform ``U`` to
@@ -202,8 +204,8 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
                 kept.append((v, c, v2))
         db = kept
         db.append((pv, pc, p2))
-        if move_hook is not None:
-            move_hook(pv, pc, p2, db)
+        if move_hook is not None and move_hook(pv, pc, p2, db, samples) is False:
+            break
 
     return [(v, c) for v, c, _ in sorted(db, key=lambda e: e[2])]
 

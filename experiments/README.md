@@ -102,13 +102,15 @@ firing counter (`MODQ_STATS`, `reset_modq_stats`); the self-test compares plain
 vs mod-q for both. **Result: inert** (see FINDINGS) — the wrap structure is
 already absorbed by ordinary reduction; it never changes detection.
 
-## `modq_firing.py` — how often does mod-q fire vs (n, p)? (NEGATIVE)
+## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
-Sweeps lattice size `n` and association probability `p` (modelling `1-p` of the
-lattice photons as background, widening the effective pulse) and counts mod-q
-firings. **Firing is driven by `n`, not `p`**: triple fire-rate ≈0%→1.8% as
-n goes 16→22, but flat across p at fixed n. Q is identical with/without mod-q in
-every cell — the firings never yield a shorter vector that matters.
+Three measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
+sigmoid saturating to ~100% by n≈36–40 (so ~100% at the n=70–80 target);
+(2) firing vs association probability `p` (modelling `1-p` background photons) —
+**driven by `n`, flat in `p`**; (3) **work-to-detection** — samples until the
+first Q>50 solution, with vs without mod-q. **Identical** in every (n, seed):
+the shortcut gives no speedup. Detection is reached early via small-coordinate
+combinations that never wrap; firing happens later on irrelevant candidates.
 
 ## `q_invariance.py` — is the modulus q a lever? (NEGATIVE)
 

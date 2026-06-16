@@ -37,17 +37,26 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   pulsar is recovered only when seeded with the exact true `b*`. **Dead.**
 - **Reduce mod q inside the sieve** (`pure_sieve.py` `mod_q=`; `modq_firing.py`):
   reduce pair- and triple-candidates mod q (centered, over the wrap coords)
-  *before* the length check, so a candidate that is long raw but short after
-  wrapping is kept. **Inert for detection** — Q is identical with/without mod-q
-  in every (n, p) cell tested. Firing is governed by the lattice *dimension*,
-  not the data quality: triple fire-rate ≈0% (n≤16), 0.25% (n=18), 0.5% (n=20),
-  1.8% (n=22) as bigger triples reach the ±q/2 boundary; the pair step fires more
-  (it also wraps raw samples) but equally harmlessly. Across association
-  probability p (1.0→0.4, i.e. more background, wider σ_eff) the fire-rate is
-  ~flat at fixed n and `maxcoord/q` stays ~constant — the sieve still works with
-  small-residual (overfit) vectors regardless of p. Confirms at the sieve *core*
-  what `modq_reduction` found post-hoc: the wrap structure is fully absorbed by
-  ordinary reduction.
+  *before* the length check — the idea being to reach short vectors faster
+  (fewer iterations / shallower pumps), not to change the endpoint.
+  **It gives no speedup, and no change to the endpoint.**
+  * *Speed (the point):* samples-to-first-detection are **identical** with and
+    without mod-q, in every (n, seed) at n=18–22. Detection is reached in the
+    first ~5–25 samples via small-coordinate combinations that never engage a
+    wrap; the firing happens later on longer/irrelevant candidates, off the
+    detection-relevant path. So the shortcut does not reach short vectors faster.
+  * *Endpoint:* Q is identical with/without mod-q in every (n, p) cell.
+  * *Firing rate is set by lattice dimension, not data quality:* triple fire-rate
+    ≈0% (n≤16) → 0.2% (18) → 2.3% (22) → 37% (30); a sigmoid saturating to ~100%
+    by n≈36–40 (`maxcoord/q ≈ 0.0208 n − 0.176` crosses ½ at n≈33), so at the
+    target n=70–80 essentially **every** candidate fires. Across p (1.0→0.4,
+    more background, wider σ_eff) the rate is ~flat at fixed n. The pair step
+    fires more (it also wraps raw samples) but equally harmlessly.
+
+  Net: the explicit mod-q is a *shortcut* for what pair-reduction against the
+  wrap vectors `q*e_j` already does; firing more often (large n) just means the
+  shortcut triggers more, not that it accomplishes anything reduction wouldn't —
+  confirming at the sieve *core* what `modq_reduction` found post-hoc.
 - **Modulus switching — exploit q·Z^n via the value of q** (`q_invariance.py`):
   above the precision floor (`q ≫ f_prior/(d_f σ²)`, which matches the paper's
   footnote), `d_sieve` is q-invariant. q is only the integer SCALE of a
