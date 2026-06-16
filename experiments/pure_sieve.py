@@ -36,10 +36,14 @@ def _sub(a, s, b):
     return [int(a[t]) - s * int(b[t]) for t in range(len(a))]
 
 
-def _pair_reduce(pv, pc, p2, db):
+def _pair_reduce(pv, pc, p2, db, mod_q=None):
     """Gauss (2-)reduction of (vector pv, coeffs pc) against the database. A move
     is accepted only if it strictly reduces the norm, so float rounding of the
-    Gauss coefficient can never produce a longer vector."""
+    Gauss coefficient can never produce a longer vector.
+
+    If ``mod_q=(n_per, q)``, each candidate is reduced mod q before its length is
+    checked, and a standalone wrap of p itself is tried each pass (subtracting
+    q*e_j directly). Requires coefficients in the original/wrap basis."""
     changed = True
     while changed and p2 > 0:
         changed = False
@@ -52,12 +56,30 @@ def _pair_reduce(pv, pc, p2, db):
             s = int(round(ip / v2))
             if s == 0:
                 continue
-            cand = _sub(pv, s, v)
-            c2 = _n2(cand)
+            cand, cc = _sub(pv, s, v), _sub(pc, s, c)
+            if mod_q is not None:
+                cand, cc, c2 = _mod_q(cand, cc, mod_q[0], mod_q[1])
+            else:
+                c2 = _n2(cand)
             if c2 < p2:
-                pv, pc, p2 = cand, _sub(pc, s, c), c2
+                pv, pc, p2 = cand, cc, c2
+                changed = True
+        if mod_q is not None and p2 > 0:          # try wrapping p itself
+            wv, wc, w2 = _mod_q(pv, pc, mod_q[0], mod_q[1])
+            if w2 < p2:
+                pv, pc, p2 = wv, wc, w2
                 changed = True
     return pv, pc, p2
+
+
+# Firing counter: how often _mod_q is invoked and how often it actually wraps a
+# coordinate. Reset with ``reset_modq_stats()``; read ``MODQ_STATS`` afterwards.
+MODQ_STATS = {"calls": 0, "fires": 0}
+
+
+def reset_modq_stats():
+    MODQ_STATS["calls"] = 0
+    MODQ_STATS["fires"] = 0
 
 
 def _mod_q(vec, coef, n_per, q):
@@ -66,14 +88,19 @@ def _mod_q(vec, coef, n_per, q):
     lattice. Requires ``coef`` to be in the ORIGINAL basis (whose j-th row is
     q*e_j for j < n_per), so the bookkeeping is just ``coef[j] -= s``. Returns
     new (vec, coef, norm2)."""
+    MODQ_STATS["calls"] += 1
     vec = list(vec)
     coef = list(coef)
+    fired = False
     for j in range(n_per):
         vj = int(vec[j])
         s = int(round(vj / q))
         if s:
             vec[j] = vj - s * q
             coef[j] = int(coef[j]) - s
+            fired = True
+    if fired:
+        MODQ_STATS["fires"] += 1
     return vec, coef, _n2(vec)
 
 
@@ -157,10 +184,10 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
         pv, pc = stack.pop() if stack else sample()
         samples += 1
         p2 = _n2(pv)
-        pv, pc, p2 = _pair_reduce(pv, pc, p2, db)
+        pv, pc, p2 = _pair_reduce(pv, pc, p2, db, mod_q=mod_q)
         if triple and p2 > 0:
             pv, pc, p2 = _triple_reduce(pv, pc, p2, db, topk, mod_q=mod_q)
-            pv, pc, p2 = _pair_reduce(pv, pc, p2, db)
+            pv, pc, p2 = _pair_reduce(pv, pc, p2, db, mod_q=mod_q)
         if p2 == 0:                                # collision
             collisions += 1
             if collisions > sat_ratio * target:
@@ -168,7 +195,7 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
             continue
         kept = []
         for v, c, v2 in db:                        # reduce db against newcomer
-            rv, rc, rv2 = _pair_reduce(v, c, v2, [(pv, pc, p2)])
+            rv, rc, rv2 = _pair_reduce(v, c, v2, [(pv, pc, p2)], mod_q=mod_q)
             if rv2 < v2:
                 stack.append((rv, rc))
             else:
@@ -214,11 +241,14 @@ if __name__ == "__main__":
 
     runs = [
         ("pair-only (Gauss)", dict(triple=False)),
+        ("pair + mod-q",      dict(triple=False, mod_q=(n_per, qi))),
         ("triple (hk3)",      dict(triple=True)),
         ("triple + mod-q",    dict(triple=True, mod_q=(n_per, qi))),
     ]
-    print(f"{'':>18}  {'db':>4} {'reasonable':>10} {'max Q':>7} {'min ||v||':>12}")
+    print(f"{'':>18}  {'db':>4} {'reason':>6} {'max Q':>7} {'min ||v||':>12} {'modq fires':>11}")
     for label, kw in runs:
+        reset_modq_stats()
         out = gauss_sieve(B, seed=1, seed_coef=U, **kw)
         n_db, n_reas, best, mn = evaluate(out)
-        print(f"{label:>18}: {n_db:>4} {n_reas:>10} {best:>7.1f} {mn:>12.3e}")
+        print(f"{label:>18}: {n_db:>4} {n_reas:>6} {best:>7.1f} {mn:>12.3e} "
+              f"{MODQ_STATS['fires']:>11}")

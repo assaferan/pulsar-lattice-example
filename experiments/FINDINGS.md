@@ -35,15 +35,19 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   and wins any L2 selection — need a physical mask; (2) with that mask, no
   short-baseline bootstrap candidate connects to the pulsar (best Q~1); the
   pulsar is recovered only when seeded with the exact true `b*`. **Dead.**
-- **Reduce mod q inside the hk3 triple** (`pure_sieve.py`, `mod_q=`): reduce
-  each 3-tuple candidate mod q (centered, over the n_per wrap coords) *before*
-  the length check, so a triple that is long raw but short after wrapping is
-  kept. **Inert.** It fires on ~0–0.02% of candidates (the pair-reduced database
-  already has residual coords ≪ q/2, so triples never overflow a wrap), and when
-  it does fire the wrapped candidate is never shorter than what ordinary
-  reduction finds — identical db, shortest vector, and detection with/without.
-  Confirms at the sieve *core* what `modq_reduction` found post-hoc: the wrap
-  structure is fully absorbed by LLL/Gauss reduction.
+- **Reduce mod q inside the sieve** (`pure_sieve.py` `mod_q=`; `modq_firing.py`):
+  reduce pair- and triple-candidates mod q (centered, over the wrap coords)
+  *before* the length check, so a candidate that is long raw but short after
+  wrapping is kept. **Inert for detection** — Q is identical with/without mod-q
+  in every (n, p) cell tested. Firing is governed by the lattice *dimension*,
+  not the data quality: triple fire-rate ≈0% (n≤16), 0.25% (n=18), 0.5% (n=20),
+  1.8% (n=22) as bigger triples reach the ±q/2 boundary; the pair step fires more
+  (it also wraps raw samples) but equally harmlessly. Across association
+  probability p (1.0→0.4, i.e. more background, wider σ_eff) the fire-rate is
+  ~flat at fixed n and `maxcoord/q` stays ~constant — the sieve still works with
+  small-residual (overfit) vectors regardless of p. Confirms at the sieve *core*
+  what `modq_reduction` found post-hoc: the wrap structure is fully absorbed by
+  ordinary reduction.
 - **Modulus switching — exploit q·Z^n via the value of q** (`q_invariance.py`):
   above the precision floor (`q ≫ f_prior/(d_f σ²)`, which matches the paper's
   footnote), `d_sieve` is q-invariant. q is only the integer SCALE of a

@@ -96,10 +96,19 @@ entries), so small-dimension only; g6k stays for scale. Each entry carries its
 coefficients in the input basis, so mapping results back is exact. Self-test:
 `pure_lll` + `gauss_sieve` recover a small synthetic pulsar end-to-end (Q≈384),
 with **no g6k dependency** — the fully transparent stack for algorithm tweaks.
-Includes a `mod_q=(n_per, q)` option that reduces triple candidates mod q before
-the length check (a structure-aware experiment); the self-test compares it
-against plain pair/triple. **Result: inert** (see FINDINGS) — the wrap structure
-is already absorbed by ordinary reduction, so it rarely fires and never helps.
+Includes a `mod_q=(n_per, q)` option that reduces **pair- and triple-**candidates
+mod q before the length check (a structure-aware experiment), with a built-in
+firing counter (`MODQ_STATS`, `reset_modq_stats`); the self-test compares plain
+vs mod-q for both. **Result: inert** (see FINDINGS) — the wrap structure is
+already absorbed by ordinary reduction; it never changes detection.
+
+## `modq_firing.py` — how often does mod-q fire vs (n, p)? (NEGATIVE)
+
+Sweeps lattice size `n` and association probability `p` (modelling `1-p` of the
+lattice photons as background, widening the effective pulse) and counts mod-q
+firings. **Firing is driven by `n`, not `p`**: triple fire-rate ≈0%→1.8% as
+n goes 16→22, but flat across p at fixed n. Q is identical with/without mod-q in
+every cell — the firings never yield a shorter vector that matters.
 
 ## `q_invariance.py` — is the modulus q a lever? (NEGATIVE)
 
