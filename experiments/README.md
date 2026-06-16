@@ -87,6 +87,16 @@ basis), `fpylll_lll` (fast, same signature), and `pump` over g6k primitives with
 a per-round `on_round` hook (inspect the DB, inject vectors, switch sieve `alg`,
 stop early). Self-test recovers the pulsar end-to-end on `data.npy` (Q≈404).
 
+## `pure_sieve.py` — the hk3 sieve cracked open (TOOLING)
+
+A pure-Python sieve mirroring g6k's `hk3` triple sieve: a database of lattice
+vectors reduced by **pair** (Gauss, 2-reduction) and optional **triple** (the
+hk3 3-tuple move) combinations until saturation. Exact-integer (for the q≈1e15
+entries), so small-dimension only; g6k stays for scale. Each entry carries its
+coefficients in the input basis, so mapping results back is exact. Self-test:
+`pure_lll` + `gauss_sieve` recover a small synthetic pulsar end-to-end (Q≈384),
+with **no g6k dependency** — the fully transparent stack for algorithm tweaks.
+
 ## `q_invariance.py` — is the modulus q a lever? (NEGATIVE)
 
 Measures `d_sieve` for the same problem at several `q`. **Above the precision

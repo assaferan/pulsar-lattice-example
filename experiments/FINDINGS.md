@@ -82,6 +82,11 @@ validated empirically in `../complexity_empirical.py`; Table 1 is reproduced in
   and a `pump` over g6k primitives with a per-round `on_round` hook (inspect the
   DB, inject vectors, switch sieve alg, stop early). Verified to recover the
   pulsar end-to-end on `data.npy` (Q≈404). Substrate for algorithm experiments.
+- **Pure-Python sieve (`pure_sieve.py`).** g6k's `hk3` triple sieve cracked open:
+  a database reduced by editable **pair** (Gauss) and **triple** (hk3 3-tuple)
+  moves, exact-integer, coefficients carried for an exact map-back. With
+  `pure_lll` it gives a fully g6k-free transparent stack; recovers a small
+  synthetic pulsar (Q≈384). Small-dimension only (slow); g6k for scale.
 
 ## Open directions
 

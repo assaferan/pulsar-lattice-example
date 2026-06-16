@@ -26,7 +26,8 @@ Run the self-test (g6k env active):  PYTHONPATH=. python experiments/lattice_too
 
 import numpy as np
 import fpylll
-from g6k import Siever
+# g6k is imported lazily inside make_siever/pump so the pure-Python tools
+# (pure_lll) can be used without a g6k build.
 
 
 # --------------------------------------------------------------------------- #
@@ -108,6 +109,7 @@ def fpylll_lll(basis, delta=0.99):
 # --------------------------------------------------------------------------- #
 def make_siever(basis):
     """A g6k Siever over the integer lattice with rows ``basis``."""
+    from g6k import Siever
     n = len(basis)
     IM = fpylll.IntegerMatrix.from_iterable(
         n, n, [int(x) for row in basis for x in row])
