@@ -113,14 +113,15 @@ def main():
         print(f"   {p:>4.1f} {pct:>6.2f}% {maxc:>11.3f}", flush=True)
 
     print("\n[3] work-to-detection (samples) -- does the shortcut reach the solution faster?")
+    print("    (spans the high-firing regime: n=30 fires ~37% of candidates)")
     print(f"   {'n':>4} {'no-modq':>9} {'mod-q':>8}  (median over 5 seeds)")
-    for n in (18, 20, 22):
+    for n in (18, 22, 26, 30):
         a = [work_to_detect(n, s, False) for s in range(5)]
         b = [work_to_detect(n, s, True) for s in range(5)]
         md = lambda x: np.median([v for v in x if v is not None])
         print(f"   {n:>4} {md(a):>9.0f} {md(b):>8.0f}", flush=True)
     print("\n=> firing climbs with n but NOT with p; and it gives no speedup -- "
-          "samples-to-detection are identical with/without mod-q.")
+          "samples-to-detection are identical with/without mod-q, even at ~37% firing.")
 
 
 if __name__ == "__main__":

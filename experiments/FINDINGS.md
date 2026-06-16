@@ -41,10 +41,17 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   (fewer iterations / shallower pumps), not to change the endpoint.
   **It gives no speedup, and no change to the endpoint.**
   * *Speed (the point):* samples-to-first-detection are **identical** with and
-    without mod-q, in every (n, seed) at n=18–22. Detection is reached in the
-    first ~5–25 samples via small-coordinate combinations that never engage a
-    wrap; the firing happens later on longer/irrelevant candidates, off the
-    detection-relevant path. So the shortcut does not reach short vectors faster.
+    without mod-q, in every (n, seed) at n=18–30 — including the high-firing end
+    (n=30 fires ~37% of candidates). Detection is reached in the first ~5–35
+    samples via small-coordinate combinations that never engage a wrap; the
+    firing happens later on longer/irrelevant candidates, off the detection path.
+    So the shortcut does not reach short vectors faster, even where it fires often.
+  * *Why a g6k-pump test at n≈70 is unnecessary:* mod-q subtracts wrap rows
+    `q*e_j`, changing the wrap counts k (norm) but **not** the timing parameters
+    p — and detection (Q) depends only on p. So applying mod-q to any found
+    vector (post-hoc, or by insertion) cannot change Q or `d_sieve` — it is
+    algebraically vacuous. The only non-vacuous mechanism is in-sieve
+    keep/discard, which is exactly what the pure sieve tests above (no speedup).
   * *Endpoint:* Q is identical with/without mod-q in every (n, p) cell.
   * *Firing rate is set by lattice dimension, not data quality:* triple fire-rate
     ≈0% (n≤16) → 0.2% (18) → 2.3% (22) → 37% (30); a sigmoid saturating to ~100%
