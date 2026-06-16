@@ -70,6 +70,20 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   scale-invariant continuous problem (phase residuals mod 1), not an exploitable
   LWE-style modulus — which is exactly why `modq_reduction` was redundant with
   LLL. **Dead.**
+- **mod-1 in a bare pair-sieve** (`pair_sieve_mod1.py`, `pair_sieve_scaling.py`,
+  `pair_sieve_triple.py`; a collaborator's experiment): on a random bank of
+  uniform vectors reduced by `+/-1` pair moves to a target length, wrapping
+  `v +/- w` mod 1 *does* lower the minimal viable database size `L_min`, by ~1.4x.
+  This is the one place the wrap helps — the bare 2-sieve has no LLL to absorb it.
+  But it is a **pair-sieve-only** effect with **no pipeline relevance**: (i) the
+  `L_min` advantage is small and roughly **constant** (the log-slope gap bounced
+  0.006–0.029 across runs; the no-mod-1 exponent ~0.21 matches the textbook
+  `(4/3)^{n/2}`); an asymptotic (growing) advantage is *not* established. (ii)
+  Adding the triple (hk3) move collapses `L_min` to a constant (~4) at every
+  dimension — the 3-tuple trivialises the metric, so there is no exponent left for
+  mod-1 to touch. The real sieve uses triple + LLL, where the wrap was already
+  found inert (`modq_reduction`, `modq_firing`). **Real in the toy, dead in the
+  pipeline.**
 - **Longer observation baseline** (`baseline_scaling.py`): a *controlled*
   comparison of two ways to add TOAs — grow the baseline (`span ∝ N`) vs.
   subsample a fixed span (the `density_sweep` setup). In the easy/large-gap

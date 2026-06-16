@@ -150,21 +150,22 @@ off the `n≤64` grid by `p`=0.52. Tracks the closed form `n ∝ 1/D`, `D=-1.280
 (the `n/(1/D)` ratio converges to ~32 as `n` grows; inflated at small `n` by the
 finite-size GH correction). You pay in the *exponent*, with a hard wall at `p≈0.07`.
 
-## `pair_sieve_mod1.py` / `pair_sieve_scaling.py` — does mod-1 help the pair-sieve? (PRELIMINARY: yes, asymptotically)
+## `pair_sieve_mod1.py` / `pair_sieve_scaling.py` / `pair_sieve_triple.py` — does mod-1 help the pair-sieve? (YES ~1.4x, but pair-only)
 
 Reproduces a collaborator's experiment: a bank of `L` random vectors uniform in
 `[-1/2,1/2]^n`, reduced by single `+/-1` (Gauss/2-) pair moves to saturation, is
-*viable* if the saturated mean `|v|^2` reaches `n*(0.5/12 + 0.5 sigma^2)` (the
-p=0.5 mix of uniform background and a width-`sigma` signal). `L_min(n)` is the
-smallest viable database, measured **with and without reducing `v +/- w` mod 1**
-(the q=1 wrap). `pair_sieve_scaling.py` fits `log2 L_min` vs `n`.
+*viable* if the saturated mean `|v|^2` reaches `n*((1-w)/12 + w sigma^2)` (a
+mix of uniform background and a width-`sigma` signal; `w=0.5` is the collaborator's
+setting). `L_min(n)` is the smallest viable database, measured **with and without
+reducing `v +/- w` mod 1** (the q=1 wrap). `pair_sieve_scaling.py` fits
+`log2 L_min` vs `n`; `pair_sieve_triple.py` adds the 3-tuple (hk3) move.
 
-**Finding (preliminary):** mod-1 lowers the database *exponent*, not just a
-constant — `L_min ~ 2^(0.206 n)` (no mod-1) vs `2^(0.177 n)` (mod-1), so the
-advantage `~2^(0.029 n)` grows with dimension (ratio 1.5->2.2 over n=12->30). The
-no-mod-1 exponent `0.206` matches the textbook 2-sieve `(4/3)^(n/2)=2^0.2075`,
-validating the setup. **Caveat:** this is the bare 2-sieve (no LLL, no triple
-moves); our earlier pipeline experiments found mod-q *inert* because LLL absorbs
-the wrap. Whether the exponent advantage survives 3-reductions / LLL is the open
-question (that decides pipeline relevance) — not yet folded into the main
-findings.
+**Finding:** mod-1 lowers `L_min` by **~1.4x** in the bare 2-sieve (no-mod-1
+exponent ~0.21 matches the textbook `(4/3)^(n/2)=2^0.2075`, validating the setup).
+Whether the advantage *grows* with `n` is **not settled** — the log-slope gap
+bounced between 0.006 and 0.029 across runs/targets, so it leans **constant**, not
+asymptotic. Crucially it is **pair-only**: adding the triple (hk3) move collapses
+`L_min` to a constant (~4) at every `n` (the 3-tuple trivialises the random-bank
+metric — no exponent left for mod-1 to touch). The real sieve uses triple + LLL,
+where the wrap was already found inert (`modq_reduction`, `modq_firing`). So:
+real in the toy, dead in the pipeline.
