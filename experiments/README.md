@@ -78,6 +78,31 @@ algorithm: O(1) bootstrap solve + O(N) cheap phase-connections = `poly(N)`
 true solution*; it says nothing about whether a short-baseline bootstrap can
 *acquire* the true solution in the first place. It cannot.
 
+## `lattice_tools.py` — tweakable LLL + g6k pump (TOOLING)
+
+Transparent, hackable versions of the two pipeline stages for experiments:
+`pure_lll` (pure-Python, exact integer basis + float GSO, both reduction rules
+editable, returns the transform `U` so coefficients map back to the original
+basis), `fpylll_lll` (fast, same signature), and `pump` over g6k primitives with
+a per-round `on_round` hook (inspect the DB, inject vectors, switch sieve `alg`,
+stop early). Self-test recovers the pulsar end-to-end on `data.npy` (Q≈404).
+
+## `q_invariance.py` — is the modulus q a lever? (NEGATIVE)
+
+Measures `d_sieve` for the same problem at several `q`. **Above the precision
+floor** (`q ≫ f_prior/(d_f σ²)`, matching the paper's footnote) `d_sieve` is
+**q-invariant**: q is the integer scale of a scale-invariant continuous problem,
+not an exploitable modulus. Below the floor, detection fails (rounding error
+swamps the signal). Confirms why `modq_reduction` was redundant with LLL.
+
+## `baseline_scaling.py` — does a longer baseline lower the sieving cost? (NO, in the clean regime)
+
+Controlled comparison of two ways to add TOAs under one detection methodology
+(held-out verify-set Q): **A** grow the baseline (`span ∝ N`) vs. **B** subsample
+a fixed span. In the easy/large-gap regime they scale identically (`d_sieve`-vs-
+`N` slope `0.275` vs. `0.300`) — baseline confers no advantage over density. The
+hard/`gap≈1` regime is left as a postponed open question (needs larger `N`).
+
 ## `l1_search.py` — would an L1 objective acquire the pulsar? (NEGATIVE)
 
 Tests whether minimising the L1 (rather than L2) phase residual helps acquisition.

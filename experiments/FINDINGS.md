@@ -35,6 +35,20 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   and wins any L2 selection — need a physical mask; (2) with that mask, no
   short-baseline bootstrap candidate connects to the pulsar (best Q~1); the
   pulsar is recovered only when seeded with the exact true `b*`. **Dead.**
+- **Modulus switching — exploit q·Z^n via the value of q** (`q_invariance.py`):
+  above the precision floor (`q ≫ f_prior/(d_f σ²)`, which matches the paper's
+  footnote), `d_sieve` is q-invariant. q is only the integer SCALE of a
+  scale-invariant continuous problem (phase residuals mod 1), not an exploitable
+  LWE-style modulus — which is exactly why `modq_reduction` was redundant with
+  LLL. **Dead.**
+- **Longer observation baseline** (`baseline_scaling.py`): a *controlled*
+  comparison of two ways to add TOAs — grow the baseline (`span ∝ N`) vs.
+  subsample a fixed span (the `density_sweep` setup). In the easy/large-gap
+  regime (`σ=0.03`) the two scale identically (`d_sieve`-vs-`N` slope `0.275`
+  vs. `0.300`), so a longer baseline confers no advantage over more density. An
+  uncontrolled grow-baseline run looked sub-linear, but the control disproved it.
+  **No win shown** (the hard/`gap≈1` regime at `N≤56` is too noisy to resolve —
+  see Open directions).
 
 ## The core obstruction
 
@@ -44,13 +58,41 @@ huge `g_far`), so a bounded bootstrap cannot **acquire** the solution, and the
 linear-`d_sieve` cost reasserts itself. The hard part is *acquisition from
 partial data*, not *connection once you have the solution*.
 
+In lattice-crypto terms: the lattice is q-ary with a rank-`p` code mod q
+(LWE/SIS shape), and the difficulty is the **near-unit gap** `σ/σ_exp ≈ 2^0.2`
+at the Table-1 detection threshold — the true solution is barely shorter than a
+random short vector, which forces full-dimension sieving and a `2^(0.2N)`
+candidate database. The gap is set by the *physics* (pulse width σ vs. photon
+background), so no lattice-construction trick — q-ary structure, modulus
+switching, or baseline — can move it. The GH/`σ_exp` model underlying this is
+validated empirically in `../complexity_empirical.py`; Table 1 is reproduced in
+`../complexity_table.py`. **The only lever that touches the gap is data quality
+(narrower σ / better photon weighting), i.e. statistics, not lattices.**
+
+## Tooling
+
+- **Forward simulator (built).** `../model_b_full_timing.py` emits
+  `span_vecs`/`coeff_std`/`integer_lattice` for the full 7-parameter model at any
+  chosen baseline, photon count, and pulse width — the simulator the open
+  directions below used to call for. `../model_a_constant_frequency.py` is the
+  2-parameter version.
+- **Tweakable LLL + pump (`lattice_tools.py`).** Transparent, hackable versions
+  of the two pipeline stages: `pure_lll` (exact integer basis, float GSO, both
+  reduction rules editable; returns the transform `U`), `fpylll_lll` (fast),
+  and a `pump` over g6k primitives with a per-round `on_round` hook (inspect the
+  DB, inject vectors, switch sieve alg, stop early). Verified to recover the
+  pulsar end-to-end on `data.npy` (Q≈404). Substrate for algorithm experiments.
+
 ## Open directions
 
-- **Longer-baseline simulator.** Everything here is fixed N=70 / fixed span.
-  The regime that actually matters (longer observation → bigger parameter ranges,
-  more wraps) is unreachable from `data.npy`. A forward simulator that emits
-  `span_vecs`/`coeff_std` at a chosen baseline would let us measure the true
-  N-scaling and test ideas in the right regime.
+- **Hard-regime baseline test (postponed).** `baseline_scaling.py`'s grow-vs-
+  fixed-span comparison is clean in the easy/large-gap regime (A≈B). Settling it
+  at `gap≈1` (the regime that matters) needs `N≈80–120` with averaging
+  (minute-scale sieves) to beat the detection-edge noise seen at `N≤56`.
+- **Widen the gap (the only live lever).** Since difficulty is gap-limited and
+  physical, the payoff is in `σ_exp/σ`: better per-photon weighting, sharper
+  pulse modeling, or dropping low-probability photons. This is statistics, not
+  lattice structure — but it is the one thing that moves the exponent.
 - **Change the search objective (L1 vs L2)** (`l1_search.py`): **DEAD.** Two
   tests. (i) Re-ranking the full L2-sieve database by L1 separates the pulsar
   from nulls *worse* than L2 (6.1σ vs 7.8σ) — the residuals aren't sparse
