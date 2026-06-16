@@ -149,3 +149,22 @@ for `p`=0.98→0.92→0.83→0.69→0.52, i.e. cost 660 → 1.9e6 (~2900×) by `
 off the `n≤64` grid by `p`=0.52. Tracks the closed form `n ∝ 1/D`, `D=-1.280-ln σ`
 (the `n/(1/D)` ratio converges to ~32 as `n` grows; inflated at small `n` by the
 finite-size GH correction). You pay in the *exponent*, with a hard wall at `p≈0.07`.
+
+## `pair_sieve_mod1.py` / `pair_sieve_scaling.py` — does mod-1 help the pair-sieve? (PRELIMINARY: yes, asymptotically)
+
+Reproduces a collaborator's experiment: a bank of `L` random vectors uniform in
+`[-1/2,1/2]^n`, reduced by single `+/-1` (Gauss/2-) pair moves to saturation, is
+*viable* if the saturated mean `|v|^2` reaches `n*(0.5/12 + 0.5 sigma^2)` (the
+p=0.5 mix of uniform background and a width-`sigma` signal). `L_min(n)` is the
+smallest viable database, measured **with and without reducing `v +/- w` mod 1**
+(the q=1 wrap). `pair_sieve_scaling.py` fits `log2 L_min` vs `n`.
+
+**Finding (preliminary):** mod-1 lowers the database *exponent*, not just a
+constant — `L_min ~ 2^(0.206 n)` (no mod-1) vs `2^(0.177 n)` (mod-1), so the
+advantage `~2^(0.029 n)` grows with dimension (ratio 1.5->2.2 over n=12->30). The
+no-mod-1 exponent `0.206` matches the textbook 2-sieve `(4/3)^(n/2)=2^0.2075`,
+validating the setup. **Caveat:** this is the bare 2-sieve (no LLL, no triple
+moves); our earlier pipeline experiments found mod-q *inert* because LLL absorbs
+the wrap. Whether the exponent advantage survives 3-reductions / LLL is the open
+question (that decides pipeline relevance) — not yet folded into the main
+findings.
