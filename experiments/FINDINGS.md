@@ -127,6 +127,15 @@ validated empirically in `../complexity_empirical.py`; Table 1 is reproduced in
   physical, the payoff is in `σ_exp/σ`: better per-photon weighting, sharper
   pulse modeling, or dropping low-probability photons. This is statistics, not
   lattice structure — but it is the one thing that moves the exponent.
+  *Quantified* (`cost_vs_p.py`): lowering the association probability `p` widens
+  `σ` (`σ²=(1-p)/12`) and the measured minimum detection dimension `n_threshold`
+  climbs with it — 26→30→40→58→(>64) for `p`=0.98→0.92→0.83→0.69→0.52 — so the
+  pump cost `2^(0.36 n)` explodes (660 → 1.9e6, ~2900×, from `p`=0.98 to 0.69;
+  off the `n≤64` grid by `p`=0.52). The growth tracks the closed-form `n ∝ 1/D`,
+  `D=-1.280-ln σ` (ratio `n/(1/D)` converges to ~32 as `n` grows; inflated at
+  small `n` by the finite-size GH correction). You pay in the *exponent*, with a
+  hard wall at `σ→0.278` (`p≈0.07`). Real `data.npy` (`p≈0.9`) sits at the cheap
+  end, so association quality is precious.
 - **Change the search objective (L1 vs L2)** (`l1_search.py`): **DEAD.** Two
   tests. (i) Re-ranking the full L2-sieve database by L1 separates the pulsar
   from nulls *worse* than L2 (6.1σ vs 7.8σ) — the residuals aren't sparse

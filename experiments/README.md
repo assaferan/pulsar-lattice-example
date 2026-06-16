@@ -137,3 +137,15 @@ emits it; globally `b*` is rank 1 under both norms, so selection is fine. The
 bottleneck is **generation from a short baseline**, which is norm-independent.
 (The no-signal solution has zero residual under any norm, so residual-min never
 prefers a pulsar — detection needs the coherence/physical criterion.)
+
+## `cost_vs_p.py` — how much does lowering the association probability p cost the pump?
+
+Empirically confirms the Table-1 cost model under varying data quality. For each
+`p` (via `σ²=(1-p)/12`) it grows the number of TOAs until the pump detects, giving
+the minimum detection dimension `n_threshold` and pump cost `2^(0.36 n)`.
+
+**Finding:** cost climbs steeply and accelerates — `n_threshold` 26→30→40→58→(>64)
+for `p`=0.98→0.92→0.83→0.69→0.52, i.e. cost 660 → 1.9e6 (~2900×) by `p`=0.69 and
+off the `n≤64` grid by `p`=0.52. Tracks the closed form `n ∝ 1/D`, `D=-1.280-ln σ`
+(the `n/(1/D)` ratio converges to ~32 as `n` grows; inflated at small `n` by the
+finite-size GH correction). You pay in the *exponent*, with a hard wall at `p≈0.07`.
