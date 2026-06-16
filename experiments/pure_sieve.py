@@ -60,9 +60,31 @@ def _pair_reduce(pv, pc, p2, db):
     return pv, pc, p2
 
 
-def _triple_reduce(pv, pc, p2, db, topk):
+def _mod_q(vec, coef, n_per, q):
+    """Reduce the first ``n_per`` coordinates mod q to their centered
+    representative -- a lattice move, since the wrap rows q*e_j are in the
+    lattice. Requires ``coef`` to be in the ORIGINAL basis (whose j-th row is
+    q*e_j for j < n_per), so the bookkeeping is just ``coef[j] -= s``. Returns
+    new (vec, coef, norm2)."""
+    vec = list(vec)
+    coef = list(coef)
+    for j in range(n_per):
+        vj = int(vec[j])
+        s = int(round(vj / q))
+        if s:
+            vec[j] = vj - s * q
+            coef[j] = int(coef[j]) - s
+    return vec, coef, _n2(vec)
+
+
+def _triple_reduce(pv, pc, p2, db, topk, mod_q=None):
     """3-tuple reduction (the hk3 move): try p (+/-) v (+/-) w over the topk
-    shortest database vectors; keep the shortest result below ||p||."""
+    shortest database vectors; keep the shortest result below ||p||.
+
+    If ``mod_q=(n_per, q)``, each candidate is reduced mod q (over its first
+    n_per coordinates) BEFORE its length is checked -- so a triple that is long
+    in raw coordinates but short after wrapping is still accepted. (Requires
+    coefficients in the original/wrap basis; see ``_mod_q``.)"""
     short = sorted(db, key=lambda e: e[2])[:topk]
     bv, bc, b2 = pv, pc, p2
     for i in range(len(short)):
@@ -73,18 +95,22 @@ def _triple_reduce(pv, pc, p2, db, topk):
                 for sw in (1, -1):
                     cand = [int(pv[t]) - sv * int(vi[t]) - sw * int(vj[t])
                             for t in range(len(pv))]
-                    c2 = _n2(cand)
+                    cc = [int(pc[t]) - sv * int(ci[t]) - sw * int(cj[t])
+                          for t in range(len(pc))]
+                    if mod_q is not None:
+                        cand, cc, c2 = _mod_q(cand, cc, mod_q[0], mod_q[1])
+                    else:
+                        c2 = _n2(cand)
                     if c2 < b2:
-                        bc = [int(pc[t]) - sv * int(ci[t]) - sw * int(cj[t])
-                              for t in range(len(pc))]
-                        bv, b2 = cand, c2
+                        bv, bc, b2 = cand, cc, c2
     return bv, bc, b2
 
 
 def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
-                sat_ratio=0.5, topk=40, seed=0, sampler_coeff=3, move_hook=None):
+                sat_ratio=0.5, topk=40, seed=0, sampler_coeff=3, move_hook=None,
+                seed_coef=None, mod_q=None):
     """Sieve the lattice with rows ``basis``; return a list of (vector, coeffs),
-    shortest first. ``coeffs`` are integer coordinates in ``basis``.
+    shortest first.
 
     triple        : also do 3-tuple reductions (the hk3 move).
     target        : stop once the database reaches this size (default 4*dim).
@@ -92,19 +118,27 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
     topk          : how many shortest db vectors the triple search scans.
     sampler_coeff : range of random basis-combination coeffs for new samples.
     move_hook     : optional callback move_hook(pv, pc, p2, db) after each insert.
+    seed_coef     : (n x n) matrix; row i = coordinates of ``basis[i]`` in the
+                    basis you want ``coeffs`` reported in (default identity ->
+                    coeffs in ``basis`` itself). Pass the LLL transform ``U`` to
+                    report coeffs in the original lattice basis.
+    mod_q         : ``(n_per, q)`` to enable q-reduction of triple candidates
+                    before the length check (the structure-aware experiment).
+                    Requires ``seed_coef`` mapping to the original/wrap basis.
     """
     rng = np.random.default_rng(seed)
     B = [[int(x) for x in row] for row in basis]
     dim = len(B)
     if target is None:
         target = 4 * dim
-
-    def e(i):
-        return [1 if t == i else 0 for t in range(dim)]
+    if mod_q is not None and seed_coef is None:
+        raise ValueError("mod_q requires seed_coef (the original/wrap basis transform)")
+    C = (np.eye(dim, dtype=object) if seed_coef is None
+         else np.array(seed_coef, dtype=object))   # report-basis coords of each B row
 
     # work stack seeded with the basis vectors (and negatives), as (vec, coef)
-    stack = [(list(B[i]), e(i)) for i in range(dim)]
-    stack += [([-x for x in B[i]], [-x for x in e(i)]) for i in range(dim)]
+    stack = [(list(B[i]), [int(x) for x in C[i]]) for i in range(dim)]
+    stack += [([-x for x in B[i]], [-int(x) for x in C[i]]) for i in range(dim)]
 
     db = []                          # (vec, coef, norm2), pairwise-reduced
     collisions = 0
@@ -115,7 +149,8 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
         for c, b in zip(coeffs, B):
             if c:
                 pv = [pv[t] + int(c) * b[t] for t in range(dim)]
-        return pv, [int(c) for c in coeffs]
+        coef = [int(x) for x in (coeffs.astype(object) @ C)]
+        return pv, coef
 
     samples = 0
     while len(db) < target and samples < max_samples:
@@ -124,7 +159,7 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
         p2 = _n2(pv)
         pv, pc, p2 = _pair_reduce(pv, pc, p2, db)
         if triple and p2 > 0:
-            pv, pc, p2 = _triple_reduce(pv, pc, p2, db, topk)
+            pv, pc, p2 = _triple_reduce(pv, pc, p2, db, topk, mod_q=mod_q)
             pv, pc, p2 = _pair_reduce(pv, pc, p2, db)
         if p2 == 0:                                # collision
             collisions += 1
@@ -162,15 +197,28 @@ if __name__ == "__main__":
     q = data["mul_factor"]
 
     B, U = pure_lll(il, delta=0.99)                            # transparent LLL
-    for label, triple in [("pair-only (Gauss)", False), ("triple (hk3-style)", True)]:
-        out = gauss_sieve(B, triple=triple, seed=1)
-        coeffs = np.array([c for _, c in out], dtype=object) @ U   # -> original basis
+    qi = int(il[0, 0])                                         # exact integer q
+    Qn = np.sum(data["probs_verify"] ** 2 / 2)
+
+    def evaluate(out):
+        # seed_coef=U => coeffs already in the original il basis
+        coeffs = np.array([c for _, c in out], dtype=object)
+        norms = np.array([float(_n2(v)) ** 0.5 for v, _ in out])
         p_par = coeffs[:, n_per:].astype(float)
         vf = np.mod(p_par @ data["transformation_matrix"] / q + 0.5, 1) - 0.5
-        Qn = np.sum(data["probs_verify"] ** 2 / 2)
         Q = np.abs(np.sum(data["probs_verify"] * np.exp(2j * np.pi * vf), axis=1)) ** 2 / Qn
         kstd = np.std(coeffs[:, :n_per].astype(float), axis=1)
         reasonable = kstd > 1e3
         best = Q[reasonable].max() if reasonable.any() else float("nan")
-        print(f"{label:>20}: db={len(out):4d}  reasonable={int(reasonable.sum()):3d}  "
-              f"max Q={best:.1f}")
+        return len(out), int(reasonable.sum()), best, norms.min()
+
+    runs = [
+        ("pair-only (Gauss)", dict(triple=False)),
+        ("triple (hk3)",      dict(triple=True)),
+        ("triple + mod-q",    dict(triple=True, mod_q=(n_per, qi))),
+    ]
+    print(f"{'':>18}  {'db':>4} {'reasonable':>10} {'max Q':>7} {'min ||v||':>12}")
+    for label, kw in runs:
+        out = gauss_sieve(B, seed=1, seed_coef=U, **kw)
+        n_db, n_reas, best, mn = evaluate(out)
+        print(f"{label:>18}: {n_db:>4} {n_reas:>10} {best:>7.1f} {mn:>12.3e}")

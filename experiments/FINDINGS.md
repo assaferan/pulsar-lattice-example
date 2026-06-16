@@ -35,6 +35,15 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   and wins any L2 selection — need a physical mask; (2) with that mask, no
   short-baseline bootstrap candidate connects to the pulsar (best Q~1); the
   pulsar is recovered only when seeded with the exact true `b*`. **Dead.**
+- **Reduce mod q inside the hk3 triple** (`pure_sieve.py`, `mod_q=`): reduce
+  each 3-tuple candidate mod q (centered, over the n_per wrap coords) *before*
+  the length check, so a triple that is long raw but short after wrapping is
+  kept. **Inert.** It fires on ~0–0.02% of candidates (the pair-reduced database
+  already has residual coords ≪ q/2, so triples never overflow a wrap), and when
+  it does fire the wrapped candidate is never shorter than what ordinary
+  reduction finds — identical db, shortest vector, and detection with/without.
+  Confirms at the sieve *core* what `modq_reduction` found post-hoc: the wrap
+  structure is fully absorbed by LLL/Gauss reduction.
 - **Modulus switching — exploit q·Z^n via the value of q** (`q_invariance.py`):
   above the precision floor (`q ≫ f_prior/(d_f σ²)`, which matches the paper's
   footnote), `d_sieve` is q-invariant. q is only the integer SCALE of a
