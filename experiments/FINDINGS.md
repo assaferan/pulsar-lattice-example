@@ -106,6 +106,15 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   shortness; detecting the pulsar needs a physical large-wrap-count solution, so
   "mod-q shortens vectors" and "mod-q finds the pulsar" are different claims —
   only the former holds. **mod-q harmful here.**
+  * *Refinement — excluding the redundant wrap rows doesn't rescue it.* Under
+    mod-q the wrap rows `q*e_j` reduce to 0, so they are dead generators; one
+    might hope removing them (sieve the quotient `L/qZ^N`, via the new
+    `gauss_sieve(active_rows=...)`) avoids the collapse. It does not — db goes to
+    ~2 with `|b|~1`, `k=0` (even more degenerate). The physical solution is short
+    only via *large near-cancelling* coeffs (`|b|~8e11`, `k-std~1.6e9`); mod-q
+    reaches shortness the easy way (`k=0`) regardless of how you seed. So the
+    failure is **not** the wrap-row seeding — mod-q simply targets the wrong
+    short-vector class. (`sieve_only.py` parts [3]–[4].)
 - **Longer observation baseline** (`baseline_scaling.py`): a *controlled*
   comparison of two ways to add TOAs — grow the baseline (`span ∝ N`) vs.
   subsample a fixed span (the `density_sweep` setup). In the easy/large-gap

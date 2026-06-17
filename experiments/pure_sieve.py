@@ -135,7 +135,7 @@ def _triple_reduce(pv, pc, p2, db, topk, mod_q=None):
 
 def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
                 sat_ratio=0.5, topk=40, seed=0, sampler_coeff=3, move_hook=None,
-                seed_coef=None, mod_q=None):
+                seed_coef=None, mod_q=None, active_rows=None):
     """Sieve the lattice with rows ``basis``; return a list of (vector, coeffs),
     shortest first.
 
@@ -154,6 +154,10 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
     mod_q         : ``(n_per, q)`` to enable q-reduction of triple candidates
                     before the length check (the structure-aware experiment).
                     Requires ``seed_coef`` mapping to the original/wrap basis.
+    active_rows   : restrict the seed stack and sampler to this subset of basis
+                    rows (default all). Under ``mod_q`` the wrap rows ``q*e_j``
+                    reduce to 0, so excluding them (active_rows = the timing rows)
+                    sieves the quotient lattice L/qZ^N without the dead generators.
     """
     rng = np.random.default_rng(seed)
     B = [[int(x) for x in row] for row in basis]
@@ -164,16 +168,18 @@ def gauss_sieve(basis, triple=False, target=None, max_samples=20000,
         raise ValueError("mod_q requires seed_coef (the original/wrap basis transform)")
     C = (np.eye(dim, dtype=object) if seed_coef is None
          else np.array(seed_coef, dtype=object))   # report-basis coords of each B row
+    idx = list(range(dim)) if active_rows is None else list(active_rows)
 
-    # work stack seeded with the basis vectors (and negatives), as (vec, coef)
-    stack = [(list(B[i]), [int(x) for x in C[i]]) for i in range(dim)]
-    stack += [([-x for x in B[i]], [-int(x) for x in C[i]]) for i in range(dim)]
+    # work stack seeded with the (active) basis vectors and negatives, as (vec, coef)
+    stack = [(list(B[i]), [int(x) for x in C[i]]) for i in idx]
+    stack += [([-x for x in B[i]], [-int(x) for x in C[i]]) for i in idx]
 
     db = []                          # (vec, coef, norm2), pairwise-reduced
     collisions = 0
 
     def sample():
-        coeffs = rng.integers(-sampler_coeff, sampler_coeff + 1, size=dim)
+        coeffs = np.zeros(dim, dtype=int)
+        coeffs[idx] = rng.integers(-sampler_coeff, sampler_coeff + 1, size=len(idx))
         pv = [0] * dim
         for c, b in zip(coeffs, B):
             if c:

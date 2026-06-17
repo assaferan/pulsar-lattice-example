@@ -100,7 +100,10 @@ Includes a `mod_q=(n_per, q)` option that reduces **pair- and triple-**candidate
 mod q before the length check (a structure-aware experiment), with a built-in
 firing counter (`MODQ_STATS`, `reset_modq_stats`); the self-test compares plain
 vs mod-q for both. **Result: inert** (see FINDINGS) — the wrap structure is
-already absorbed by ordinary reduction; it never changes detection.
+already absorbed by ordinary reduction; it never changes detection. Also an
+`active_rows=` knob restricting the seed/sampler to a subset of basis rows: under
+mod-q the wrap rows `q*e_j` reduce to 0, so `active_rows=` the timing rows sieves
+the quotient `L/qZ^N` without the dead generators.
 
 ## `sieve_only.py` — iterations to the short vector, LLL vs none, and mod-q (NEGATIVE)
 
@@ -109,10 +112,13 @@ Feeds the pure triple-sieve either an LLL-reduced basis or the **raw**
 essential:** LLL+sieve ~5–17 iters (flat in n); sieve-only ~180 at n=14 (~36×) and
 fails to converge by n≈16–18 — the raw fold has wrap counts `k~1e10` a sieve can't
 build up; LLL pre-packages them. **(2) mod-q *hurts* the raw sieve** (opposite of
-the bare pair-sieve): it collapses every vector's wrap counts to 0 (median k-std
-1.6e9→0) and the db to ~3, so the physical large-k solution never forms — it fails
-at every n. **(3) Lower p** breaks the raw sieve regardless. So "mod-q shortens
-vectors" ≠ "mod-q finds the pulsar".
+the bare pair-sieve): the physical solution is short only via *large near-cancelling*
+coeffs (`|b|~8e11`, k-std 1.6e9), but mod-q reaches shortness the easy way — wrapping
+to `k=0` — so it parks on the trivial constant-phase family and the physical solution
+never forms; fails at every n. **(3) Excluding the redundant wrap rows** (`active_rows`)
+does *not* rescue it (db→2, `|b|~1`): the failure is mod-q targeting the wrong
+short-vector class, not the wrap-row seeding. **(4) Lower p** breaks the raw sieve
+regardless. So "mod-q shortens vectors" ≠ "mod-q finds the pulsar".
 
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
