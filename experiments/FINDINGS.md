@@ -93,6 +93,19 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   mod-1 to touch. The real sieve uses triple + LLL, where the wrap was already
   found inert (`modq_reduction`, `modq_firing`). **Real in the toy, dead in the
   pipeline.**
+- **mod-q in a sieve WITHOUT LLL** (`sieve_only.py`): tested because the bare
+  pair-sieve above *benefits* from mod-1, so maybe mod-q helps once LLL isn't
+  there to absorb it. On the actual pulsar lattice it is the **opposite — mod-q
+  destroys detection.** The plain raw sieve finds the fold at N=14 (~180 iters);
+  *with* mod-q it fails at every N (and at every p). Diagnostic (N=14): mod-q
+  wraps each candidate by decrementing the wrap counts, driving median `k-std`
+  from `1.6e9` to `0` and collapsing the database (~25→3, via collisions). The
+  surviving high-Q vectors are the trivial constant-phase (`k=0`) ones; the
+  *physical* solution needs large, varying `k` (`~1e10`, std>1e3), which wrapping
+  annihilates. The pair-sieve benefits because its target is pure geometric
+  shortness; detecting the pulsar needs a physical large-wrap-count solution, so
+  "mod-q shortens vectors" and "mod-q finds the pulsar" are different claims —
+  only the former holds. **mod-q harmful here.**
 - **Longer observation baseline** (`baseline_scaling.py`): a *controlled*
   comparison of two ways to add TOAs — grow the baseline (`span ∝ N`) vs.
   subsample a fixed span (the `density_sweep` setup). In the easy/large-gap

@@ -102,14 +102,17 @@ firing counter (`MODQ_STATS`, `reset_modq_stats`); the self-test compares plain
 vs mod-q for both. **Result: inert** (see FINDINGS) — the wrap structure is
 already absorbed by ordinary reduction; it never changes detection.
 
-## `sieve_only.py` — iterations to the short vector, with vs without LLL
+## `sieve_only.py` — iterations to the short vector, LLL vs none, and mod-q (NEGATIVE)
 
 Feeds the pure triple-sieve either an LLL-reduced basis or the **raw**
-`integer_lattice`, counting samples until detection (held-out Q>50). **LLL+sieve:
-~5–17 iterations, flat in n; sieve-only: ~180 at n=14 (~36×) and fails to converge
-by n≈16–18.** The raw fold vector has wrap counts `k~1e10`, which a sieve (only
-`v±w±u`) can't build up — LLL pre-packages them into short basis vectors. Confirms
-why every real sieve LLL/BKZ-reduces first.
+`integer_lattice`, counting samples until detection (held-out Q>50). **(1) LLL is
+essential:** LLL+sieve ~5–17 iters (flat in n); sieve-only ~180 at n=14 (~36×) and
+fails to converge by n≈16–18 — the raw fold has wrap counts `k~1e10` a sieve can't
+build up; LLL pre-packages them. **(2) mod-q *hurts* the raw sieve** (opposite of
+the bare pair-sieve): it collapses every vector's wrap counts to 0 (median k-std
+1.6e9→0) and the db to ~3, so the physical large-k solution never forms — it fails
+at every n. **(3) Lower p** breaks the raw sieve regardless. So "mod-q shortens
+vectors" ≠ "mod-q finds the pulsar".
 
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
