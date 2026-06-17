@@ -14,6 +14,10 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   `s=8.105e-4`, `c=6.570e-5`, `Qortho` = orthonormalized `span_vecs`.
 - Phase model (validated exactly): parameters `b` fold TOA i to
   `k_i = round(-(b·A[:,i])/q)`. Use exact ints — `q·k` overflows int64.
+- LLL/BKZ before sieving is *essential*, not just a speedup (`sieve_only.py`):
+  sieving the raw lattice needs ~30x more iterations at N=14 and fails to converge
+  by N≈16–18, because the fold's wrap counts (~1e10) can't be built up by the
+  sieve's `v±w±u` moves — LLL pre-packages them into short basis vectors.
 
 ## What worked (constant factor, not asymptotic)
 

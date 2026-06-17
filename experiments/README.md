@@ -102,6 +102,15 @@ firing counter (`MODQ_STATS`, `reset_modq_stats`); the self-test compares plain
 vs mod-q for both. **Result: inert** (see FINDINGS) — the wrap structure is
 already absorbed by ordinary reduction; it never changes detection.
 
+## `sieve_only.py` — iterations to the short vector, with vs without LLL
+
+Feeds the pure triple-sieve either an LLL-reduced basis or the **raw**
+`integer_lattice`, counting samples until detection (held-out Q>50). **LLL+sieve:
+~5–17 iterations, flat in n; sieve-only: ~180 at n=14 (~36×) and fails to converge
+by n≈16–18.** The raw fold vector has wrap counts `k~1e10`, which a sieve (only
+`v±w±u`) can't build up — LLL pre-packages them into short basis vectors. Confirms
+why every real sieve LLL/BKZ-reduces first.
+
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
 Four measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
