@@ -83,6 +83,36 @@ def work_to_detect(n, seed, mod_q, sigma_int=SIGMA_INT):
     return state["hit"]
 
 
+def firing_row_q(n, q, seed=7):
+    """Like firing_row but at an explicit modulus q (clean p=1 lattice), to probe
+    the precision floor. Self-contained so q is not the module default."""
+    from lattice_tools import fpylll_lll          # robust on near-degenerate (small q)
+    rng = np.random.default_rng(seed)
+    tref = T0 + TSPAN / 2
+    toas = A.generate_toas(n, F, PHI, tref, TSPAN, SIGMA_INT, rng)
+    M = A.design_matrix(toas, tref)
+    steps = 0.01 / np.max(np.abs(M), axis=1)
+    il = A.build_integer_lattice(M, q, steps, 10 * np.abs(np.array([PHI, F])))
+    qi = int(il[0, 0])
+    vt = A.generate_toas(200, F, PHI, tref, TSPAN, SIGMA_INT, rng)
+    tm = q * steps[:, None] * A.design_matrix(vt, tref)
+    probs = np.ones(200, np.float32)
+    B, U = fpylll_lll(il, 0.99)
+
+    def det(out):
+        co = np.array([c for _, c in out], dtype=object)
+        vf = np.mod(co[:, n:].astype(float) @ tm / qi + 0.5, 1) - 0.5
+        Qv = np.abs(np.sum(probs * np.exp(2j * np.pi * vf), axis=1)) ** 2 / np.sum(probs ** 2 / 2)
+        m = np.std(co[:, :n].astype(float), axis=1) > 1e3
+        return Qv[m].max() if m.any() else float("nan")
+
+    Q0 = det(ps.gauss_sieve(B, triple=True, seed=1, seed_coef=U))
+    ps.reset_modq_stats()
+    Q1 = det(ps.gauss_sieve(B, triple=True, seed=1, seed_coef=U, mod_q=(n, qi)))
+    st = ps.MODQ_STATS
+    return 100 * st["fires"] / max(st["calls"], 1), Q0, Q1
+
+
 def firing_row(n, p, seed=7):
     il, n_per, tm, probs = mixed_lattice(n, p, seed=seed)
     qi = int(il[0, 0])
@@ -120,8 +150,17 @@ def main():
         b = [work_to_detect(n, s, True) for s in range(5)]
         md = lambda x: np.median([v for v in x if v is not None])
         print(f"   {n:>4} {md(a):>9.0f} {md(b):>8.0f}", flush=True)
-    print("\n=> firing climbs with n but NOT with p; and it gives no speedup -- "
-          "samples-to-detection are identical with/without mod-q, even at ~37% firing.")
+    print("\n[4] firing vs modulus q (n=26): q-invariant above the precision floor")
+    print(f"   {'q':>7} {'fire%':>7} {'Q(no q)':>8} {'Q(mod q)':>9} {'detect':>7}")
+    for q in (10 ** 12, 10 ** 13, 10 ** 15):
+        pct, Q0, Q1 = firing_row_q(26, q)
+        print(f"   {q:>7.0e} {pct:>6.2f}% {Q0:>8.1f} {Q1:>9.1f} "
+              f"{('YES' if Q0 > 50 else 'no'):>7}", flush=True)
+
+    print("\n=> firing climbs with n but NOT with p, and is q-invariant above the\n"
+          "   precision floor (below it the lattice degenerates, detection fails).\n"
+          "   And it gives no speedup -- samples-to-detection identical with/without\n"
+          "   mod-q, even at ~37% firing.")
 
 
 if __name__ == "__main__":

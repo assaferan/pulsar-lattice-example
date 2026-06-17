@@ -104,13 +104,15 @@ already absorbed by ordinary reduction; it never changes detection.
 
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
-Three measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
+Four measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
 sigmoid saturating to ~100% by n≈36–40 (so ~100% at the n=70–80 target);
 (2) firing vs association probability `p` (modelling `1-p` background photons) —
 **driven by `n`, flat in `p`**; (3) **work-to-detection** — samples until the
 first Q>50 solution, with vs without mod-q. **Identical** in every (n, seed):
 the shortcut gives no speedup. Detection is reached early via small-coordinate
 combinations that never wrap; firing happens later on irrelevant candidates.
+(4) firing vs modulus `q` — **q-invariant above the precision floor** (coord/q is
+a phase residual); below it the lattice degenerates and detection fails.
 
 ## `q_invariance.py` — is the modulus q a lever? (NEGATIVE)
 

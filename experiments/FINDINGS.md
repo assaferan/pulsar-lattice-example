@@ -59,6 +59,11 @@ and learned. Scripts referenced live in this directory; see `README.md`.
     target n=70–80 essentially **every** candidate fires. Across p (1.0→0.4,
     more background, wider σ_eff) the rate is ~flat at fixed n. The pair step
     fires more (it also wraps raw samples) but equally harmlessly.
+  * *q-invariant above the precision floor:* firing% is also independent of the
+    modulus q (n=26: ~10–14% for q=1e13…1e16) — `coord/q` is a phase residual,
+    q-independent. Below the floor (q≲1e12, where `round(q·s/coeff_std)`→0) the
+    lattice degenerates: detection fails and mod-q stops being inert but only
+    makes the already-failed result worse. So no q makes the shortcut useful.
 
   Net: the explicit mod-q is a *shortcut* for what pair-reduction against the
   wrap vectors `q*e_j` already does; firing more often (large n) just means the

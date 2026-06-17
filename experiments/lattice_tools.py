@@ -44,7 +44,10 @@ def _gso(B):
     for i in range(n):
         bstar[i] = Bf[i]
         for j in range(i):
-            mu[i, j] = Bf[i] @ bstar[j] / norm2[j]
+            # Guard against a (near-)zero Gram-Schmidt norm, which arises for
+            # (near-)rank-deficient bases -- e.g. a q-ary lattice below the
+            # precision floor, where small entries round to 0. Treat mu = 0 there.
+            mu[i, j] = (Bf[i] @ bstar[j] / norm2[j]) if norm2[j] > 1e-9 else 0.0
             bstar[i] -= mu[i, j] * bstar[j]
         norm2[i] = bstar[i] @ bstar[i]
     return mu, norm2
