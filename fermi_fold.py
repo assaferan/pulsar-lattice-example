@@ -44,13 +44,8 @@ def load_data(path="data/data.npy"):
     return np.load(path, allow_pickle=True).tolist()
 
 
-def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz):
-    """Reduce and sieve the lattice; return (db_raw, db_transformation, db_vectors).
-
-    With ``do_bkz`` the basis is reduced with BKZ (the full strategy); otherwise
-    only LLL is used (the fast strategy).  ``pump_stop`` is the left bound the
-    G6K pump descends to: smaller means a deeper, more expensive sieve.
-    """
+def _reduced_gso(integer_lattice, block_size, delta, do_bkz):
+    """Build a fresh GSO (tracking U) and BKZ- (``do_bkz``) or LLL-reduce it."""
     n = integer_lattice.shape[0]
     integer_matrix = fpylll.IntegerMatrix.from_iterable(
         n, n, list(map(int, list(integer_lattice.flatten()))),
@@ -61,7 +56,6 @@ def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz):
         U=fpylll.IntegerMatrix.identity(n),
         UinvT=fpylll.IntegerMatrix.identity(n),
     )
-
     if do_bkz:
         fpylll.BKZ.Reduction(
             gso,
@@ -74,15 +68,38 @@ def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz):
         )()
     else:
         fpylll.LLL.Reduction(gso, delta=delta)()
+    return gso
 
-    # Sieve on successively larger sublattices (G6K "pump").
-    g6k = Siever(gso)
-    g6k.initialize_local(0, n // 2, n)
-    with g6k.temp_params(otf_lift=False):
-        while g6k.l > pump_stop:
-            g6k.extend_left(1)
-            g6k(alg="hk3")
-        g6k.extend_left(g6k.l)
+
+def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz, alg="hk3"):
+    """Reduce and sieve the lattice; return (db_raw, db_transformation, db_vectors).
+
+    With ``do_bkz`` the basis is reduced with BKZ (the full strategy); otherwise
+    only LLL is used (the fast strategy).  ``pump_stop`` is the left bound the
+    G6K pump descends to: smaller means a deeper, more expensive sieve.
+
+    ``alg`` is the G6K sieve algorithm (``"hk3"``, ``"bgj1"``, ``"bdgl"``, ...).
+    ``hk3`` (the default triple sieve) is fastest but raises ``SaturationError``
+    on the highly skewed q-ary lattice once the dimension exceeds ~100; on that
+    failure we automatically rebuild and retry with ``bgj1``, which is robust.
+    """
+    n = integer_lattice.shape[0]
+    algorithms = [alg] if alg == "bgj1" else [alg, "bgj1"]
+    g6k = None
+    for a in algorithms:
+        gso = _reduced_gso(integer_lattice, block_size, delta, do_bkz)
+        g6k = Siever(gso)
+        g6k.initialize_local(0, n // 2, n)
+        try:
+            with g6k.temp_params(otf_lift=False):   # sieve over larger sublattices
+                while g6k.l > pump_stop:
+                    g6k.extend_left(1)
+                    g6k(alg=a)
+                g6k.extend_left(g6k.l)
+            break
+        except Exception:
+            if a == algorithms[-1]:                 # fallback also failed
+                raise
 
     # Read the sieve results in the various formats.
     db_raw = np.array(list(g6k.itervalues()))
@@ -92,7 +109,7 @@ def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz):
 
 
 def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
-         reasonable_k_std=1e5):
+         reasonable_k_std=1e5, alg="hk3"):
     """Run the lattice folding pipeline on the given data.
 
     Parameters
@@ -114,6 +131,11 @@ def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
     reasonable_k_std : float, optional
         Minimum standard deviation of the integer coefficients ``k`` for a
         solution to be considered physical (default 1e5).
+    alg : str, optional
+        G6K sieve algorithm (default ``"hk3"``). ``hk3`` is fastest but raises
+        ``SaturationError`` on this skewed q-ary lattice past dimension ~100;
+        the sieve then falls back to ``"bgj1"`` automatically (which handles the
+        full dimension), so large-N searches work without changing this.
 
     Returns
     -------
@@ -144,10 +166,10 @@ def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
 
     if fast:
         db_raw, db_transformation, db_vectors = _sieve(
-            integer_lattice, pump_stop, block_size, delta, do_bkz=False)
+            integer_lattice, pump_stop, block_size, delta, do_bkz=False, alg=alg)
     else:
         db_raw, db_transformation, db_vectors = _sieve(
-            integer_lattice, len(coeff_std), block_size, delta, do_bkz=True)
+            integer_lattice, len(coeff_std), block_size, delta, do_bkz=True, alg=alg)
 
     db_transformation_k = db_transformation[:, :n_periodic]
     db_transformation_p = db_transformation[:, n_periodic:]
