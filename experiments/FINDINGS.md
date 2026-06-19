@@ -161,6 +161,18 @@ validated empirically in `../complexity_empirical.py`; Table 1 is reproduced in
   moves, exact-integer, coefficients carried for an exact map-back. With
   `pure_lll` it gives a fully g6k-free transparent stack; recovers a small
   synthetic pulsar (Q≈384). Small-dimension only (slow); g6k for scale.
+- **g6k saturates only up to dim ~100 on this lattice; subsample past that
+  (`fermi_fold.fold_subsampled`).** On the highly skewed q-ary pulsar lattice
+  (`q=1e15` wrap rows vs a tiny prior block), g6k's `hk3` fails to saturate once
+  the dimension exceeds ~100 -- `SaturationError`, "saturation 0.000" (zero short
+  vectors found), early in the pump. It is **not** a tunable knob: identical
+  failure across `saturation_ratio ∈ {0.5,0.3,0.15}`, pump depth, and with BKZ(30)
+  -- a GH/conditioning limit on the skew, not compute. Fix: `fold_subsampled`
+  sieves a random TOA subset (default 85 -> dim 87, in the working window ~58-95)
+  and scores detection on the full verify set (the parameters are shared, so a
+  subset pins them). On Model A `n_toas=111, p=0.7` (σ≈0.16): direct `fold`
+  crashes at dim 113, while `fold_subsampled` detects **6/6, Q≈387, ~1.7 s/seed**
+  -- stronger and faster than the subset-LLL helper (`simple_lattice`, coh ~50).
 
 ## Open directions
 

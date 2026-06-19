@@ -176,6 +176,58 @@ def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
     }
 
 
+def fold_subsampled(data_needed, n_sub=85, tries=4, detect_q=50.0, seed=0,
+                    **fold_kwargs):
+    """Run :func:`fold` on a random subset of the lattice TOAs.
+
+    g6k's sieve fails to saturate on this (highly skewed, q-ary) lattice once the
+    dimension exceeds ~100, so the full pipeline cannot be sieved directly for
+    large numbers of TOAs. Because the timing parameters are shared across all
+    TOAs, a subset of them still pins the solution -- and detection is scored on
+    the full (unchanged) verification set. We sieve ``n_sub`` randomly chosen TOAs
+    (keeping the dimension tractable), retrying fresh subsets (this also rides out
+    g6k's intermittent ``SaturationError``), and return the result with the
+    highest max Q.
+
+    The sub-lattice is the original ``[[q*I, 0], [A, L]]`` restricted to the
+    chosen TOA rows/columns plus the parameter rows/columns.
+
+    Parameters
+    ----------
+    n_sub : number of TOAs to sieve (default 85; keep below ~95).
+    tries : number of random subsets to attempt; stops early once a subset
+        detects (max Q over physical solutions > ``detect_q``).
+
+    Returns the best :func:`fold` result dict, or ``None`` if every attempt
+    raised.
+    """
+    integer_lattice = data_needed["integer_lattice"]
+    toas = np.asarray(data_needed["toas_met_lattice"])
+    n_toas = len(toas)
+    n_params = integer_lattice.shape[0] - n_toas
+    n_sub = min(n_sub, n_toas)
+    rng = np.random.default_rng(seed)
+
+    best, best_q = None, -1.0
+    for _ in range(tries):
+        sub = np.sort(rng.choice(n_toas, n_sub, replace=False))
+        ix = np.concatenate([sub, np.arange(n_toas, n_toas + n_params)])
+        sub_data = dict(data_needed)
+        sub_data["integer_lattice"] = integer_lattice[np.ix_(ix, ix)]
+        sub_data["toas_met_lattice"] = toas[sub]
+        try:
+            result = fold(sub_data, **fold_kwargs)
+        except Exception:
+            continue
+        mask = result["reasonable_solutions_mask"]
+        max_q = float(result["Q_stat"][mask].max()) if mask.any() else 0.0
+        if max_q > best_q:
+            best, best_q = result, max_q
+        if max_q > detect_q:
+            break
+    return best
+
+
 if __name__ == "__main__":
     import sys
     fast = "--fast" in sys.argv[1:]
