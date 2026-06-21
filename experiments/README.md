@@ -120,6 +120,18 @@ does *not* rescue it (db→2, `|b|~1`): the failure is mod-q targeting the wrong
 short-vector class, not the wrap-row seeding. **(4) Lower p** breaks the raw sieve
 regardless. So "mod-q shortens vectors" ≠ "mod-q finds the pulsar".
 
+## `p07_threshold.py` — how many TOAs to detect at association probability p?
+
+Sweeps `n` and reports the max reasonable Q (>50 = detected) at the effective
+pulse width `σ=√((1−p)/12)`, for model A or B. **At p=0.7 (σ=0.158): model A
+needs n≈60, model B (7 params) n≈80** — both well below Table 1's blind-7-param
+n=111 (our synthetic has tight astrometry priors). Acquisition is a sharp
+threshold (found → Q~250–350; not → Q~10–25), ~4× the p=1 requirement.
+`... p07_threshold.py [A|B] [p]` sweeps n; `... p07_threshold.py check` runs the
+shipped `fermi_fold.fold` on p=0.7 data and shows full mode detects (Q~900) while
+`fast` mode needs a **deeper pump** (it's pump depth, not LLL-vs-BKZ — `fast` with
+`pump_stop≲10` detects too).
+
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
 Four measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
