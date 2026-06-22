@@ -93,6 +93,17 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   mod-1 to touch. The real sieve uses triple + LLL, where the wrap was already
   found inert (`modq_reduction`, `modq_firing`). **Real in the toy, dead in the
   pipeline.**
+  * *Re-checked for the bgj1 (pair) pipeline* (`modq_pair.py`): once we moved off
+    hk3 to bgj1 (pure pairs), the natural worry was that the pair-sieve win above
+    would now transfer. It does **not**. On the synthetic pulsar lattice the pair
+    sieve is **identical with and without mod-q** by both metrics — work-to-
+    detection (10/10, 17/17 samples) and L_min (15/15, 18/18, 12/12) — with the
+    *physical* detection control (Q>50 AND std(k)>1e3) so mod-q can't cheat via the
+    trivial k=0 vector. The collaborator's win is for *geometric* shortness; the
+    pulsar needs a *large-k* solution, which is sieve-type-independent. Caveat:
+    decisive only at small n (pure_sieve's reach), where detection comes from
+    small-coordinate combinations that never wrap; the large-n regime is
+    untestable (g6k's bgj1 is C++ and won't take a custom mod-q).
 - **mod-q in a sieve WITHOUT LLL** (`sieve_only.py`): tested because the bare
   pair-sieve above *benefits* from mod-1, so maybe mod-q helps once LLL isn't
   there to absorb it. On the actual pulsar lattice it is the **opposite — mod-q

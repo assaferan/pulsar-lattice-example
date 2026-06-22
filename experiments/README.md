@@ -201,3 +201,15 @@ asymptotic. Crucially it is **pair-only**: adding the triple (hk3) move collapse
 metric — no exponent left for mod-1 to touch). The real sieve uses triple + LLL,
 where the wrap was already found inert (`modq_reduction`, `modq_firing`). So:
 real in the toy, dead in the pipeline.
+
+## `modq_pair.py` — does mod-q help the PAIR (bgj1) sieve? (NEGATIVE)
+
+Re-opens the mod-q question now that the pipeline uses bgj1 (pairs) not hk3
+(triples): `pair_sieve_triple` showed mod-1 helps a pair sieve but triples erase
+it, so pairs might revive it. Measures work-to-detection and minimal database
+`L_min` in the pure-Python pair sieve, mod-q vs not, with the **physical**
+detection control (Q>50 AND std(k)>1e3). **Finding: inert** — identical by both
+metrics on the pulsar lattice (work 10/10, 17/17; L_min 15/15, 18/18, 12/12). The
+collaborator's pair-sieve win is for *geometric* shortness; the pulsar's *large-k*
+solution is sieve-type-independent. (Small-n only; g6k's bgj1 can't take a custom
+mod-q, so the large-n regime is untestable.)
