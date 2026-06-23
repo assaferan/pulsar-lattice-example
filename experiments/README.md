@@ -132,6 +132,15 @@ shipped `fermi_fold.fold` on p=0.7 data and shows full mode detects (Q~900) whil
 `fast` mode needs a **deeper pump** (it's pump depth, not LLL-vs-BKZ — `fast` with
 `pump_stop≲10` detects too).
 
+## `p05_lava.py` — heavy p=0.5 detection sweep (run on a workstation, not a laptop)
+
+Tackles Table 1's hardest row, p=0.5 (σ=0.204). Projected thresholds: model A
+~n110/d_sieve88 (laptop-feasible), model B ~n145/d_sieve115 (needs RAM+cores; dim
+~115 is the bdgl regime, near g6k's MAX_SIEVING_DIM=128). BKZ-30 + a **tuned**
+pump depth (`d_sieve≈0.85·N`, capped <128, *not* full-mode), `bgj1→bdgl2` per
+case with retries; appends rows to `p05_results.txt` (gitignored) as they finish.
+`PYTHONPATH=. python experiments/p05_lava.py [A|B] [p] [n1,n2,...]`.
+
 ## `sieve_algo.py` — which g6k sieve when complexity bites? (hk3 fails, bgj1/bdgl2 win)
 
 Compares `hk3` / `bgj1` / `bdgl2` at the cost-wall case (model B, p=0.7, N=111,

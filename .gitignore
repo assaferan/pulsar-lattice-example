@@ -6,3 +6,6 @@ figures/
 data/data_generated_*.npy
 # Local copy of the paper's LaTeX source (not redistributed; see docs/METHOD.md).
 arXiv-2402.07228v2/
+
+# heavy p=0.5 sweep results (generated on lava; regenerable)
+experiments/p05_results.txt
