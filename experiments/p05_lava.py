@@ -30,11 +30,13 @@ import time
 import numpy as np
 import fpylll
 from g6k import Siever
+from g6k.siever_params import SieverParams
 
 import model_a_constant_frequency as model_a
 import model_b_full_timing as model_b
 
 # ---- config (edit for lava) ----
+THREADS = 64             # g6k sieve threads (default 1!); set for the workstation
 DEPTH_FRAC = 0.85          # sieve dimension as a fraction of the lattice dimension
 DIM_CAP = 124             # keep under g6k MAX_SIEVING_DIM (default 128)
 ATTEMPTS = 3              # retries (detection at the wall is stochastic)
@@ -66,7 +68,7 @@ def _pump_Q(reduced, pump_stop, alg, n_per, tm, q, probs):
     gso = fpylll.GSO.Mat(IM, flags=fpylll.GSO.INT_GRAM,
                          U=fpylll.IntegerMatrix.identity(n), UinvT=fpylll.IntegerMatrix.identity(n))
     gso.update_gso()
-    g = Siever(gso)
+    g = Siever(gso, SieverParams(threads=THREADS))
     g.initialize_local(0, n // 2, n)
     t0 = time.perf_counter()
     with g.temp_params(otf_lift=False):
