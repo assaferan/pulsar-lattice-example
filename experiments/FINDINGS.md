@@ -24,6 +24,15 @@ and learned. Scripts referenced live in this directory; see `README.md`.
 - **`fold(fast=True)`** — LLL + a shallow pump instead of BKZ + deep pump.
   ~100x faster sieving, same detection. Shipped in `fermi_fold.py`. This is a
   constant-factor win; `d_sieve` (hence the exponent) is unchanged.
+- **Right sieve algorithm at high dimension** (`sieve_algo.py`): the default
+  `hk3` triple sieve is memory-optimized (smallest database, ~2^{0.19 d}) and
+  **fails** (`SaturationError` / misses) once `d_sieve` passes ~80 on this skewed
+  q-ary lattice — e.g. model B, p=0.7, N=111 (needs `d_sieve~88`). `bgj1` detects
+  there in ~80 s; `bdgl2` also detects but is **no faster at this dimension** (its
+  best-known 0.292 time exponent is dominated by LSF overhead until much larger
+  N). `fermi_fold._sieve` now auto-falls-back `hk3 -> bgj1 -> bdgl2`. The real
+  feasibility lever is the **pump depth** (`d_sieve ~ 0.8 N`, not full-dim) — so
+  the harder p=0.7 / larger-N cases run well short of the worst-case `2^(0.36 N)`.
 
 ## What didn't help
 

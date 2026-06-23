@@ -78,13 +78,19 @@ def _sieve(integer_lattice, pump_stop, block_size, delta, do_bkz, alg="hk3"):
     only LLL is used (the fast strategy).  ``pump_stop`` is the left bound the
     G6K pump descends to: smaller means a deeper, more expensive sieve.
 
-    ``alg`` is the G6K sieve algorithm (``"hk3"``, ``"bgj1"``, ``"bdgl"``, ...).
-    ``hk3`` (the default triple sieve) is fastest but raises ``SaturationError``
-    on the highly skewed q-ary lattice once the dimension exceeds ~100; on that
-    failure we automatically rebuild and retry with ``bgj1``, which is robust.
+    ``alg`` is the G6K sieve algorithm (``"hk3"``, ``"bgj1"``, ``"bdgl2"``, ...).
+    ``hk3`` (the default triple sieve) is memory-optimized and fastest at low
+    dimension, but its small database raises ``SaturationError`` / misses on the
+    highly skewed q-ary lattice once the sieving dimension exceeds ~80-100. On
+    that failure we automatically rebuild and retry, first with ``bgj1`` (robust,
+    detects p=0.7 at N~111 in ~80s with a tuned pump), then with ``bdgl2`` whose
+    asymptotically-best time exponent (~0.292 vs hk3's 0.36) pays off only at
+    substantially larger dimension. So large-N searches work without changing
+    ``alg``.
     """
     n = integer_lattice.shape[0]
-    algorithms = [alg] if alg == "bgj1" else [alg, "bgj1"]
+    # try the requested alg, then fall back hk3->bgj1->bdgl2 (dedup, keep order)
+    algorithms = list(dict.fromkeys([alg, "bgj1", "bdgl2"]))
     g6k = None
     for a in algorithms:
         gso = _reduced_gso(integer_lattice, block_size, delta, do_bkz)
@@ -132,10 +138,11 @@ def fold(data_needed, fast=False, pump_stop=27, block_size=30, delta=0.95,
         Minimum standard deviation of the integer coefficients ``k`` for a
         solution to be considered physical (default 1e5).
     alg : str, optional
-        G6K sieve algorithm (default ``"hk3"``). ``hk3`` is fastest but raises
-        ``SaturationError`` on this skewed q-ary lattice past dimension ~100;
-        the sieve then falls back to ``"bgj1"`` automatically (which handles the
-        full dimension), so large-N searches work without changing this.
+        G6K sieve algorithm (default ``"hk3"``). ``hk3`` is fastest at low
+        dimension but raises ``SaturationError`` / misses on this skewed q-ary
+        lattice past sieving dimension ~80-100; the sieve then falls back
+        automatically to ``"bgj1"`` and then ``"bdgl2"`` (which handle the larger
+        dimensions), so large-N searches work without changing this.
 
     Returns
     -------

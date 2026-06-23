@@ -132,6 +132,15 @@ shipped `fermi_fold.fold` on p=0.7 data and shows full mode detects (Q~900) whil
 `fast` mode needs a **deeper pump** (it's pump depth, not LLL-vs-BKZ — `fast` with
 `pump_stop≲10` detects too).
 
+## `sieve_algo.py` — which g6k sieve when complexity bites? (hk3 fails, bgj1/bdgl2 win)
+
+Compares `hk3` / `bgj1` / `bdgl2` at the cost-wall case (model B, p=0.7, N=111,
+sieve dim 88). **`hk3` fails** (SaturationError/misses — its memory-optimized
+database is too small at this dimension); **`bgj1` detects in ~80 s**; **`bdgl2`
+detects but isn't faster here** (its 0.292 exponent only wins at larger N).
+`fermi_fold._sieve` now auto-falls-back `hk3→bgj1→bdgl2`; the key lever is pump
+depth (`d_sieve≈0.8·N`), not full-dim sieving.
+
 ## `modq_firing.py` — does the mod-q shortcut help (firing, scaling, speed)? (NEGATIVE)
 
 Four measurements: (1) firing vs `n` at p=1 — rises 0.2%→37% over n=18→30, a
