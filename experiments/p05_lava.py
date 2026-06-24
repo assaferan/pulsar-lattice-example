@@ -1,26 +1,27 @@
-"""Heavy p=0.5 detection sweep -- meant for a workstation (e.g. lava), not a laptop.
+"""Heavy p=0.5 detection scan -- one (model, n) per process, for a workstation.
 
-p=0.5 is Table 1's hardest, near-"infeasible" row: effective pulse width
-sigma = sqrt((1-0.5)/12) = 0.204. Projected detection thresholds (from the
-p=0.7 / p=1 scaling, n ∝ 1/ln(2^0.2/(sigma*sqrt(2 pi e)))):
+p=0.5 is Table 1's hardest row: effective pulse width sigma = sqrt(0.5/12) =
+0.204. An earlier projection put model A's threshold at n~110, but direct runs
+showed n=100/110/120 do NOT detect (best *physical* Q ~ 24 < 50), so the real
+threshold is higher -- this scans upward to find it (and whether it is reachable
+under g6k's MAX_SIEVING_DIM=128 cap).
 
-    model A (phi, f) :  n ~ 110,  d_sieve ~ 0.8 n ~ 88   (feasible on a laptop)
-    model B (7 param):  n ~ 145,  d_sieve ~ 0.8 n ~ 115  (needs RAM + cores;
-                        dim ~115 is the bdgl regime and near g6k's default
-                        MAX_SIEVING_DIM=128 -- rebuild g6k higher if you cap out)
+Design notes (learned the hard way):
+  * ONE (model, n) per process. The deep q-ary sieve can abort at C level
+    (siever.so) past dim ~110; isolating each n means a crash kills only that
+    point, not the whole scan. Launch many in parallel (see the driver).
+  * bgj1 only. hk3 SaturationErrors and bdgl2 C-aborts at these dims; bgj1 is the
+    robust workhorse. (bdgl2 is tried only if bgj1 itself raises.)
+  * Detection = max Q over PHYSICAL vectors (wrap-count std > reasonable_k_std),
+    exactly as fermi_fold.fold does. We also report the unmasked maxQ and its
+    wrap-std to expose the trivial low-wrap decoy (Q can be huge for a vector that
+    folds everything into one phase -- not a real pulsar).
+  * Retries: detection at the wall is stochastic, so each n gets ATTEMPTS draws.
 
-For each (model, n) it BKZ-30 reduces, then pumps a TUNED depth
-`d_sieve = min(round(depth_frac * N), dim_cap)` -- NOT full-mode (which would
-exceed the sieving cap and cost the worst-case 2^{0.36 N}). It tries `bgj1`
-first (the robust workhorse here) and falls back to `bdgl2` (asymptotically
-fastest, wins only at large dim). Detection at the wall is stochastic, so each is
-retried; results are appended to RESULTS_PATH as they complete (crash-safe).
-
-Usage on lava (g6k env active, repo on PYTHONPATH):
-    PYTHONPATH=. python experiments/p05_lava.py            # both models, p=0.5
-    PYTHONPATH=. python experiments/p05_lava.py A           # model A only
-    PYTHONPATH=. python experiments/p05_lava.py B 0.5 130,145,160
-Results also stream to experiments/p05_results.txt.
+Usage (g6k env active, repo + g6k on PYTHONPATH):
+    python experiments/p05_lava.py A 0.5 140        # one point -> p05_A_140.txt
+    python experiments/p05_lava.py B 0.5 160
+A driver loops these over an n-grid with a concurrency cap (see run_p05_scan.sh).
 """
 
 import os
@@ -35,16 +36,17 @@ from g6k.siever_params import SieverParams
 import model_a_constant_frequency as model_a
 import model_b_full_timing as model_b
 
-# ---- config (edit for lava) ----
-THREADS = 64             # g6k sieve threads (default 1!); set for the workstation
-DEPTH_FRAC = 0.85          # sieve dimension as a fraction of the lattice dimension
-DIM_CAP = 124             # keep under g6k MAX_SIEVING_DIM (default 128)
-ATTEMPTS = 3              # retries (detection at the wall is stochastic)
-BLOCK = 30               # BKZ block size for pre-reduction
-MUL = 10 ** 16           # q (above the precision floor for these N)
+# ---- config ----
+THREADS = 24             # g6k sieve threads per process (parallelism is across n)
+DEPTH_FRAC = 0.85         # sieve dimension as a fraction of the lattice dimension
+DIM_CAP = 124            # keep under g6k MAX_SIEVING_DIM (default 128)
+ATTEMPTS = 2             # stochastic retries per n
+BLOCK = 30              # BKZ block size
+MUL = 10 ** 16          # q
 N_VERIFY = 1281
-RESULTS_PATH = os.path.join(os.path.dirname(__file__), "p05_results.txt")
-DEFAULT_NS = {"A": (100, 110, 120, 130), "B": (120, 135, 150, 165)}
+K_STD = 1e5            # physical-solution wrap-count-std threshold (== fold default)
+DETECT_Q = 50.0
+OUTDIR = os.path.dirname(__file__)
 
 
 def sigma_of_p(p):
@@ -62,7 +64,8 @@ def _bkz(il):
     return [[IM[i, j] for j in range(n)] for i in range(n)]
 
 
-def _pump_Q(reduced, pump_stop, alg, n_per, tm, q, probs):
+def _sieve_detect(reduced, pump_stop, alg, n_per, tm, q, probs):
+    """Pump to pump_stop and return (detQ, unmaskedQ, wstd_at_unmasked_argmax, db_size)."""
     n = len(reduced)
     IM = fpylll.IntegerMatrix.from_iterable(n, n, [int(x) for r in reduced for x in r])
     gso = fpylll.GSO.Mat(IM, flags=fpylll.GSO.INT_GRAM,
@@ -70,19 +73,20 @@ def _pump_Q(reduced, pump_stop, alg, n_per, tm, q, probs):
     gso.update_gso()
     g = Siever(gso, SieverParams(threads=THREADS))
     g.initialize_local(0, n // 2, n)
-    t0 = time.perf_counter()
     with g.temp_params(otf_lift=False):
         while g.l > pump_stop:
             g.extend_left(1)
             g(alg=alg)
         g.extend_left(g.l)
-    dt = time.perf_counter() - t0
     db = np.array(list(g.itervalues()))
     tr = db @ np.array(list(g.M.U))
     vf = np.mod(tr[:, n_per:] @ tm / q + 0.5, 1) - 0.5
     Q = np.abs(np.sum(probs * np.exp(2j * np.pi * vf), axis=1)) ** 2 / np.sum(probs ** 2 / 2)
-    m = np.std(tr[:, :n_per].astype(float), axis=1) > 1e5
-    return (float(Q[m].max()) if m.any() else 0.0), dt
+    wstd = np.std(tr[:, :n_per].astype(float), axis=1)
+    mask = wstd > K_STD
+    detQ = float(Q[mask].max()) if mask.any() else 0.0
+    uidx = int(Q.argmax())
+    return detQ, float(Q[uidx]), float(wstd[uidx]), len(db)
 
 
 def run_case(model, n_toas, p):
@@ -95,46 +99,41 @@ def run_case(model, n_toas, p):
     d_sieve = min(round(DEPTH_FRAC * dim), DIM_CAP)
     pump_stop = dim - d_sieve
     reduced = _bkz(il)
-    best, used_alg, total_t = 0.0, "-", 0.0
-    for alg in ("bgj1", "bdgl2"):
-        for _ in range(ATTEMPTS):
+    best, uq, uw, alg_used, total_t = 0.0, 0.0, 0.0, "bgj1", 0.0
+    for attempt in range(ATTEMPTS):
+        for alg in ("bgj1", "bdgl2"):       # bdgl2 only if bgj1 raises
             try:
-                Q, dt = _pump_Q(reduced, pump_stop, alg, n_per, tm, q, probs)
+                t0 = time.perf_counter()
+                detQ, unmQ, wstd, _ = _sieve_detect(reduced, pump_stop, alg, n_per, tm, q, probs)
+                total_t += time.perf_counter() - t0
+                alg_used = alg
+                if detQ > best:
+                    best, uq, uw = detQ, unmQ, wstd
+                break
             except Exception as exc:
-                total_t += 0.0
-                Q, dt = None, 0.0
-                used_alg = f"{alg}:{type(exc).__name__}"
-                break
-            total_t += dt
-            if Q > best:
-                best, used_alg = Q, alg
-            if best > 50:
-                break
-        if best > 50:
+                alg_used = f"{alg}:{type(exc).__name__}"
+                if alg == "bdgl2":
+                    break
+        if best > DETECT_Q:
             break
-    return dict(model=model, n=n_toas, dim=dim, d_sieve=d_sieve,
-                maxQ=best, alg=used_alg, secs=round(total_t, 1),
-                detected=best > 50)
+    return dict(model=model, n=n_toas, dim=dim, d_sieve=d_sieve, detQ=best,
+                unmaskedQ=uq, decoy_wstd=uw, alg=alg_used, secs=round(total_t, 1),
+                detected=best > DETECT_Q)
 
 
-def main(models=("A", "B"), p=0.5, ns=None):
-    with open(RESULTS_PATH, "a") as fh:
-        hdr = (f"# p={p} sigma={sigma_of_p(p):.3f} depth_frac={DEPTH_FRAC} "
-               f"dim_cap={DIM_CAP} attempts={ATTEMPTS}")
-        print(hdr, flush=True); fh.write(hdr + "\n")
-        cols = f"{'model':>5} {'n':>4} {'dim':>4} {'d_sieve':>7} {'maxQ':>8} {'alg':>14} {'secs':>8} {'det':>4}"
-        print(cols, flush=True); fh.write(cols + "\n"); fh.flush()
-        for model in models:
-            for n in (ns or DEFAULT_NS[model]):
-                r = run_case(model, n, p)
-                line = (f"{r['model']:>5} {r['n']:>4} {r['dim']:>4} {r['d_sieve']:>7} "
-                        f"{r['maxQ']:>8.1f} {r['alg']:>14} {r['secs']:>8.1f} "
-                        f"{('YES' if r['detected'] else 'no'):>4}")
-                print(line, flush=True); fh.write(line + "\n"); fh.flush()
+def main():
+    model = sys.argv[1] if len(sys.argv) > 1 else "A"
+    p = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+    n = int(sys.argv[3])
+    r = run_case(model, n, p)
+    line = (f"{r['model']} n={r['n']} dim={r['dim']} d_sieve={r['d_sieve']} "
+            f"detQ={r['detQ']:.1f} unmaskedQ={r['unmaskedQ']:.1f} "
+            f"decoy_wstd={r['decoy_wstd']:.3g} alg={r['alg']} secs={r['secs']} "
+            f"-> {'DETECTED' if r['detected'] else 'no'}")
+    print(line, flush=True)
+    with open(os.path.join(OUTDIR, f"p05_{model}_{n}.txt"), "w") as fh:
+        fh.write(line + "\n")
 
 
 if __name__ == "__main__":
-    models = (sys.argv[1],) if len(sys.argv) > 1 else ("A", "B")
-    p = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
-    ns = tuple(int(x) for x in sys.argv[3].split(",")) if len(sys.argv) > 3 else None
-    main(models, p, ns)
+    main()

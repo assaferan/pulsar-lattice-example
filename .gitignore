@@ -9,3 +9,6 @@ arXiv-2402.07228v2/
 
 # heavy p=0.5 sweep results (generated on lava; regenerable)
 experiments/p05_results.txt
+experiments/p05_[AB]_*.txt
+experiments/p05_[AB]_*.log
+experiments/p05_scan_*.log
