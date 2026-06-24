@@ -194,6 +194,39 @@ validated empirically in `../complexity_empirical.py`; Table 1 is reproduced in
   crashes at dim 113, while `fold_subsampled` detects **6/6, Q≈387, ~1.7 s/seed**
   -- stronger and faster than the subset-LLL helper (`simple_lattice`, coh ~50).
 
+## p=0.5 at scale — the practical wall (`p05_lava.py`, lovelace)
+
+Direct attempt at Table 1's near-infeasible row, `p=0.5` (σ=√(0.5/12)=0.204), on a
+256-core / 2 TiB workstation with a fresh g6k build (`p05_lava.py` runs one
+`(model,n)` per process; `run_p05_scan.sh` fans them out). Three compounding walls
+stop it — and they line up with `cost_vs_p.py` (the `n_threshold` for `p=0.52` was
+already off the `n≤64` grid):
+
+- **Cost.** Detection needs sieve dim `d_sieve ≈ 0.85 N ≈ 112–124` for model A
+  `n≥130`. That is hundreds× the `dim≈88` sieves we timed for `p=0.7` (bgj1 exponent
+  0.349): the model-A `n=130…180` jobs ran **>1.8 h each with zero completing**.
+- **Stability.** bgj1 **C-aborts** (libstdc++ `terminate`) on the skewed q-ary
+  lattice once the sieving dim exceeds ~110 — `n=130/140/150` all crashed mid-sieve.
+  Same failure class as the dim>100 `hk3` saturation collapse (see Tooling). One
+  `(model,n)` per process is essential so an abort kills only that point.
+- **bdgl2 unavailable there.** The asymptotically-faster sieve (exponent 0.292)
+  needs precomputed spherical-coding tables `g6k/spherical_coding/sc_<d>_256.def`;
+  the build only generated them into the ~150s, so `n=160/170` died on
+  `Cannot open … sc_162_256.def`.
+
+**Detection was never observed.** The deepest *clean* run (`n=110`, `d_sieve=95`)
+gave best **physical** `Q≈24 < 50` and not climbing with `n`. Note the decoy: the
+*unmasked* maxQ can be huge (≈2562) for a near-zero-wrap "fold everything into one
+phase" vector — correctly rejected by the `std(k) > 1e5` physical mask (the mask
+threshold is irrelevant here: the wrap-std distribution is bimodal, ~0 or >1e11).
+
+**Verdict.** Model A `p=0.5` sits at/beyond the practical feasibility edge for this
+build. Reaching it would need (a) a g6k rebuilt for *stable* bdgl2 at dim 112–128
+(spherical codes generated higher, possibly a larger `MAX_SIEVING_DIM`), and (b)
+likely far more TOAs than the early ~110 projection — and even then detection is
+unproven. This is the gap-limited core obstruction made concrete: the physics sets
+`σ/σ_exp`, and at `p=0.5` it forces a sieve this build cannot reach.
+
 ## Open directions
 
 - **Hard-regime baseline test (postponed).** `baseline_scaling.py`'s grow-vs-
