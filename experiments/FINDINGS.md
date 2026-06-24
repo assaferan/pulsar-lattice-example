@@ -143,6 +143,43 @@ and learned. Scripts referenced live in this directory; see `README.md`.
   uncontrolled grow-baseline run looked sub-linear, but the control disproved it.
   **No win shown** (the hard/`gap≈1` regime at `N≤56` is too noisy to resolve —
   see Open directions).
+- **mod-q in a pure pair (bgj1) sieve** (`modq_pair.py`): the "mod-q is inert"
+  results were first established with `hk3` (triples), and `pair_sieve_triple`
+  showed triples *erase* a pair-sieve's mod-q win — so once the pipeline moved to
+  bgj1 (pairs) it was worth re-checking. **Still inert.** Work-to-detection and the
+  minimal database `L_min` are identical with/without mod-q at every (n, k) on the
+  pulsar lattice, because LLL pre-reduces the basis so the sieve's working vectors
+  stay below `q/2` (firing 3–5%, flat in n; vs 23–32% on a raw basis). The
+  collaborator's pair-sieve win was for *geometric* shortness; the pulsar needs a
+  *large-k* solution, which is sieve-type-independent.
+- **The baby model — where mod-q's job actually is** (`baby_model.py`). A
+  controlled lattice `q·Z^N + k` parameter rows (frequency-first Taylor phase;
+  k=1 frequency, k=2 = model A, k→7 = model B), with a planted signal and optional
+  `(1-p)` background. It pins down the whole mod-q thread mechanistically:
+  * **k=1, clean:** the planted signal *is* the shortest vector and `modq=wraps`
+    exactly — the "shortest-vector sense" in which LLL ≡ mod-q. mod-q owns the
+    N-dimensional **wrap** part, deterministically and always.
+  * **k≥2:** the signal stops being the shortest vector (the φ row introduces the
+    trivial constant-phase vector, `std(wraps)=0`, which folds perfectly). mod-q
+    *still* recovers the true wraps — so the bottleneck was never the wraps; it is
+    the **k-dimensional parameter search** + excluding the trivial vector. mod-q
+    doesn't touch that. This is the clean reason mod-q is inert for detection.
+  * **Background defeats the full-lattice shortest-vector framing** at every k:
+    each background photon adds an irreducible ~`q/2` residual, so the coherent
+    signal vector becomes *long* and LLL/sieve never surface it (only the trivial
+    vector is short). Recovery via the full lattice works only when clean (p=1);
+    background is handled by **subsetting** (`recover_frequency_modelA`), not by
+    sieving the whole lattice.
+  * **mod-q cannot substitute for LLL.** A *raw* pair sieve (no LLL) recovers
+    nothing even at p=1 — it can't build the large wraps (K~1e9) pairwise; and
+    `raw_modq` is also 0 (mod-q collapses candidates to the trivial `k=0` family).
+    **LLL is essential at every p.** What *does* shift with p is LLL-sufficiency:
+    p≳0.9 LLL alone suffices; p≈0.75–0.85 LLL alone fails but LLL+sieve recovers
+    (the sieve earns its keep); p≲0.7 nothing works at N=24.
+  * **Trivial-vector trap (recurring).** Coherence-only "detection" is fooled by
+    the constant-phase / DC vector (high Q, `std(wraps)≈0`) — the same decoy the
+    `p=0.5` scan saw at unmasked Q≈2562, and the retracted `progressive_solver`
+    Q≈2110. **Always gate on the physical `std(wraps)` mask.**
 
 ## The core obstruction
 

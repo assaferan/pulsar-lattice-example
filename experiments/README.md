@@ -231,3 +231,18 @@ metrics on the pulsar lattice (work 10/10, 17/17; L_min 15/15, 18/18, 12/12). Th
 collaborator's pair-sieve win is for *geometric* shortness; the pulsar's *large-k*
 solution is sieve-type-independent. (Small-n only; g6k's bgj1 can't take a custom
 mod-q, so the large-n regime is untestable.)
+
+## `baby_model.py` — the controlled q*Z^N + k-parameter model (TOOLING + findings)
+
+The simplest setting that isolates the mod-q / shortest-vector question: the wrap
+lattice `q*Z^N` plus `k` frequency-first Taylor parameter rows (k=1 frequency,
+k=2 = model A, k→7 = model B), with a planted signal and optional `(1-p)`
+background. Part 1 shows **k=1: signal = shortest vector = mod-q reduction**, and
+**k≥2: the signal stops being shortest** (the φ row introduces the trivial
+constant-phase vector). Part 2 sweeps the background fraction with the physical
+`std(wraps)` mask and compares LLL / sieve / mod-q / raw modes. **Findings (see
+FINDINGS "The baby model"):** mod-q owns the wraps but they were never the
+bottleneck (the k-dim parameter search is); background defeats full-lattice
+shortest-vector recovery at every k (handled by subsetting, not whole-lattice
+sieving); **mod-q cannot substitute for LLL** (raw / raw_modq recover nothing — LLL
+is essential at every p); and the LLL-sufficiency threshold sits at p≈0.85.
